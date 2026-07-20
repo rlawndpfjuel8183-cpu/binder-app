@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+  <title>바인더</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Pretendard','Apple SD Gothic Neo','Noto Sans KR','sans-serif']}}}}</script>
+  <style>
+  :root{
+    --cyan:#00D4FF; --lime:#39FF14; --violet:#A855F7; --amber:#FBBF24;
+    --rose:#F43F5E; --bg:#000; --text:#E2E2EF;
+    --muted:rgba(255,255,255,.38); --glass:rgba(255,255,255,.07); --g-bdr:rgba(255,255,255,.11);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{background:#000;color:var(--text);font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;}
+  body{background:#000;min-height:100vh;overflow-x:hidden;}
+
+  /* ambient glow */
+  #amb{position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(ellipse 70% 50% at 10% 15%,rgba(0,180,255,.04) 0%,transparent 65%),
+      radial-gradient(ellipse 55% 70% at 90% 80%,rgba(140,50,255,.05) 0%,transparent 65%),
+      radial-gradient(ellipse 40% 40% at 50% 45%,rgba(57,255,20,.01) 0%,transparent 70%);}
+
+  #app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh;max-width:430px;margin:0 auto;}
+
+  /* ── HEADER ── */
+  #hdr{position:sticky;top:0;z-index:60;padding:48px 16px 12px;
+    background:rgba(0,0,0,.82);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);
+    border-bottom:1px solid rgba(255,255,255,.07);}
+  .hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .sleep-pair{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .sleep-pair strong{color:rgba(255,255,255,.72);font-weight:600;}
+  .bead{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .bead-w{background:var(--amber);box-shadow:0 0 7px rgba(251,191,36,.9);}
+  .bead-s{background:#818CF8;box-shadow:0 0 7px rgba(129,140,248,.9);}
+  .ai-chip{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
+    background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.22);font-size:10px;color:rgba(168,85,247,.85);}
+  .avail{text-align:center;}
+  .avail-eye{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:4px;}
+  .avail-num{font-size:30px;font-weight:900;letter-spacing:-.04em;color:var(--cyan);
+    text-shadow:0 0 20px rgba(0,212,255,.75),0 0 50px rgba(0,212,255,.28);}
+  .avail-meta{display:flex;justify-content:center;gap:9px;font-size:11px;color:rgba(255,255,255,.25);margin-top:4px;font-variant-numeric:tabular-nums;}
+  .avail-meta .hi{color:rgba(0,212,255,.55);}
+  .avail-meta .sep{color:rgba(255,255,255,.1);}
+  .avail-bar{margin-top:8px;height:2px;border-radius:2px;background:rgba(255,255,255,.07);overflow:hidden;}
+  .avail-fill{height:100%;width:62%;border-radius:2px;background:linear-gradient(90deg,rgba(0,212,255,.5),rgba(0,212,255,.9));box-shadow:0 0 8px rgba(0,212,255,.5);}
+
+  /* ── MAIN ── */
+  #main{flex:1;overflow-y:auto;padding:0 0 120px;}
+  #main::-webkit-scrollbar{width:3px;}
+  #main::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;}
+
+  /* ── HOME LAYOUT ── */
+  #home-layout{display:flex;min-height:100%;}
+  #side-tabs{width:36px;flex-shrink:0;position:sticky;top:0;align-self:flex-start;
+    height:calc(100vh - 170px);display:flex;flex-direction:column;align-items:center;
+    justify-content:flex-start;padding-top:14px;gap:3px;
+    border-right:1px solid rgba(255,255,255,.06);}
+  .stab{writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);
+    font-size:11px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.2);
+    padding:11px 7px;border-radius:9px;cursor:pointer;border:none;background:none;
+    font-family:inherit;white-space:nowrap;position:relative;transition:color .2s,background .2s;}
+  .stab::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+    width:2px;border-radius:0 2px 2px 0;height:0;background:var(--lime);transition:height .25s,box-shadow .25s;}
+  .stab.on{color:var(--lime);background:rgba(57,255,20,.07);}
+  .stab.on::before{height:60%;box-shadow:0 0 7px rgba(57,255,20,.7);}
+  #home-content{flex:1;min-width:0;padding:12px 10px 0;}
+  .home-view{display:none;}
+  .home-view.on{display:block;}
+
+  /* ══════════════════════════════════════════
+     DAILY VIEW — 바인더 레이아웃
+  ══════════════════════════════════════════ */
+
+  /* 1. Date strip */
+  .date-strip{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .date-boxes{display:flex;gap:3px;align-items:center;}
+  .date-box{
+    width:22px;height:26px;border-radius:6px;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8);
+  }
+  .date-sep{width:5px;height:1px;background:rgba(255,255,255,.15);border-radius:1px;margin:0 1px;}
+  .dow-row{display:flex;gap:4px;margin-top:4px;}
+  .dow-item{font-size:8px;letter-spacing:.04em;color:rgba(255,255,255,.2);font-weight:600;}
+  .dow-item.on{color:var(--lime);text-shadow:0 0 6px rgba(57,255,20,.6);}
+  .dday-badge{
+    text-align:right;
+  }
+  .dday-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);}
+  .dday-num{font-size:22px;font-weight:900;letter-spacing:-.03em;color:var(--violet);
+    text-shadow:0 0 16px rgba(168,85,247,.6);}
+
+  /* 2. Stats row */
+  .stats-row{
+    display:flex;align-items:center;gap:6px;margin-bottom:10px;
+    padding:8px 10px;border-radius:12px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  }
+  .stat-item{display:flex;flex-direction:column;align-items:center;flex:1;}
+  .stat-item+.stat-item{border-left:1px solid rgba(255,255,255,.07);}
+  .stat-label{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:2px;}
+  .stat-val{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .stat-val.lime{color:var(--lime);text-shadow:0 0 10px rgba(57,255,20,.5);}
+  .stat-val.amber{color:var(--amber);}
+  .stat-val.indigo{color:#818CF8;}
+
+  /* 3. Affirmation card */
+  .affirmation{
+    border-radius:14px;padding:11px 13px 10px;margin-bottom:8px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+    position:relative;
+  }
+  .affirmation-text{
+    width:100%;background:none;border:none;outline:none;resize:none;
+    font-family:inherit;font-size:13px;font-weight:500;
+    color:rgba(255,255,255,.7);line-height:1.65;
+    min-height:48px;
+  }
+  .affirmation-text::placeholder{color:rgba(255,255,255,.2);}
+  .bgm-chip{
+    display:inline-flex;align-items:center;gap:5px;margin-top:6px;
+    padding:4px 9px;border-radius:20px;
+    background:rgba(57,255,20,.07);border:1px solid rgba(57,255,20,.18);
+    font-size:10px;color:rgba(57,255,20,.7);cursor:pointer;
+  }
+  .bgm-input{
+    background:none;border:none;outline:none;font-family:inherit;font-size:10px;
+    color:rgba(57,255,20,.7);width:130px;
+  }
+  .bgm-input::placeholder{color:rgba(57,255,20,.3);}
+
+  /* 4. Main split: tasks + time tracker */
+  .daily-main{display:flex;gap:8px;margin-bottom:10px;}
+
+  /* LEFT — task list */
+  .task-col{flex:1;min-width:0;}
+  .task-cat-label{
+    font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:rgba(255,255,255,.3);margin:10px 0 5px;padding-left:2px;
+    display:flex;align-items:center;gap:5px;
+  }
+  .task-cat-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.06);}
+  .task-item{
+    display:flex;align-items:flex-start;gap:7px;
+    padding:6px 8px;border-radius:9px;margin-bottom:3px;
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+    cursor:pointer;transition:background .15s,border-color .15s;
+    position:relative;
+  }
+  .task-item:hover{background:rgba(255,255,255,.06);}
+  .task-item.done{background:rgba(57,255,20,.04);border-color:rgba(57,255,20,.15);}
+  .task-cb{
+    width:15px;height:15px;border-radius:4px;flex-shrink:0;margin-top:1px;
+    border:1.5px solid rgba(255,255,255,.2);
+    display:flex;align-items:center;justify-content:center;
+    transition:all .18s;
+  }
+  .task-item.done .task-cb{
+    background:rgba(57,255,20,.25);border-color:rgba(57,255,20,.5);
+  }
+  .task-cb-check{font-size:8px;color:var(--lime);display:none;}
+  .task-item.done .task-cb-check{display:block;}
+  .task-name{
+    font-size:12px;color:rgba(255,255,255,.65);line-height:1.35;flex:1;
+    transition:color .18s;
+  }
+  .task-item.done .task-name{color:rgba(255,255,255,.3);text-decoration:line-through;}
+
+  /* inline inbox input */
+  .inbox-row{
+    display:flex;align-items:center;gap:6px;
+    margin-top:10px;padding:8px 10px;border-radius:11px;
+    background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.1);
+    transition:border-color .18s,background .18s;
+  }
+  .inbox-row:focus-within{background:rgba(57,255,20,.04);border-color:rgba(57,255,20,.3);}
+  .inbox-in{
+    flex:1;background:none;border:none;outline:none;font-family:inherit;
+    font-size:12px;color:rgba(255,255,255,.7);
+  }
+  .inbox-in::placeholder{color:rgba(255,255,255,.2);}
+  .inbox-hint{font-size:9px;color:rgba(255,255,255,.18);white-space:nowrap;flex-shrink:0;}
+
+  /* RIGHT — time tracker */
+  .time-tracker{
+    width:52px;flex-shrink:0;
+    border-radius:11px;overflow:hidden;
+    background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);
+    display:flex;flex-direction:column;
+  }
+  .tt-row{
+    flex:1;display:flex;align-items:stretch;min-height:18px;
+    border-bottom:1px solid rgba(255,255,255,.04);
+    position:relative;
+  }
+  .tt-row:last-child{border-bottom:none;}
+  .tt-hour{
+    width:18px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:flex-end;
+    padding:2px 3px 0 0;font-size:8px;font-variant-numeric:tabular-nums;
+    color:rgba(255,255,255,.18);line-height:1;
+  }
+  .tt-block{
+    flex:1;margin:2px 3px 2px 2px;border-radius:4px;
+  }
+  .tt-block.routine{background:rgba(255,255,255,.07);}
+  .tt-block.ws{
+    background:rgba(57,255,20,.18);
+    box-shadow:0 0 8px rgba(57,255,20,.2),inset 0 0 6px rgba(57,255,20,.08);
+  }
+  .tt-block.task{background:rgba(168,85,247,.28);}
+  .tt-block.meet{background:rgba(0,212,255,.2);}
+  .tt-block.empty{background:transparent;}
+
+  /* 5. Today's review */
+  .review-card{
+    border-radius:14px;padding:11px 12px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  }
+  .review-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:rgba(255,255,255,.22);margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+  .review-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07);}
+  .review-text{
+    width:100%;background:none;border:none;outline:none;resize:none;
+    font-family:inherit;font-size:12px;color:rgba(255,255,255,.6);line-height:1.7;min-height:64px;
+  }
+  .review-text::placeholder{color:rgba(255,255,255,.18);}
+
+  /* ── WEEK VIEW (physical planner layout) ── */
+  .week-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px;}
+  .week-wrap::-webkit-scrollbar{height:3px;}
+  .week-wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px;}
+
+  /* MY GOAL bar */
+  .week-goal-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;
+    padding:9px 12px;border-radius:12px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);}
+  .week-goal-label{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:rgba(255,255,255,.28);white-space:nowrap;}
+  .week-goal-input{flex:1;background:none;border:none;outline:none;font-family:inherit;
+    font-size:12px;font-weight:600;color:rgba(255,255,255,.7);}
+  .week-goal-input::placeholder{color:rgba(255,255,255,.2);}
+  .week-stars{display:flex;gap:3px;flex-shrink:0;}
+  .week-star{font-size:14px;cursor:pointer;color:rgba(255,255,255,.15);transition:color .15s,filter .15s;}
+  .week-star.on{color:var(--amber);filter:drop-shadow(0 0 5px rgba(251,191,36,.7));}
+
+  /* 7-column table */
+  .week-table{display:flex;min-width:560px;border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.08);}
+  .wk-col{flex:1;min-width:0;display:flex;flex-direction:column;
+    border-right:1px solid rgba(255,255,255,.06);}
+  .wk-col:last-child{border-right:none;}
+  .wk-col.today-col{background:rgba(57,255,20,.025);}
+
+  /* column header */
+  .wk-head{text-align:center;padding:6px 2px 5px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);cursor:pointer;}
+  .wk-head-date{font-size:8px;color:rgba(255,255,255,.2);font-variant-numeric:tabular-nums;letter-spacing:.03em;}
+  .wk-head-dow{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+    color:rgba(255,255,255,.35);margin-top:1px;}
+  .today-col .wk-head-dow{color:var(--lime);text-shadow:0 0 8px rgba(57,255,20,.6);}
+  .today-col .wk-head{background:rgba(57,255,20,.06);}
+
+  /* memo lines zone */
+  .wk-memo{padding:4px 3px;border-bottom:1px solid rgba(255,255,255,.07);min-height:88px;}
+  .wk-memo-line{height:10px;border-bottom:1px solid rgba(255,255,255,.05);margin:0 2px;}
+  .wk-memo-line:last-child{border-bottom:none;}
+  .wk-memo-input{width:100%;height:100%;background:none;border:none;outline:none;
+    resize:none;font-family:inherit;font-size:8px;color:rgba(255,255,255,.55);
+    line-height:1.6;padding:2px 3px;}
+  .wk-memo-input::placeholder{color:rgba(255,255,255,.12);}
+
+  /* time grid */
+  .wk-time-grid{flex:1;display:flex;flex-direction:column;}
+  .wk-hour{display:flex;align-items:stretch;border-bottom:1px solid rgba(255,255,255,.04);min-height:13px;position:relative;}
+  .wk-hour:last-child{border-bottom:none;}
+  .wk-hour-num{width:10px;flex-shrink:0;font-size:6px;color:rgba(255,255,255,.18);
+    font-variant-numeric:tabular-nums;padding-top:1px;padding-left:1px;line-height:1;}
+  /* sub-columns: plan | actual | category */
+  .wk-hour-cells{flex:1;display:flex;}
+  .wk-cell{flex:1;border-left:1px solid rgba(255,255,255,.04);}
+  .wk-cell:first-child{border-left:none;}
+  /* color blocks */
+  .wk-cell.routine{background:rgba(255,255,255,.05);}
+  .wk-cell.ws{background:rgba(57,255,20,.16);box-shadow:inset 0 0 4px rgba(57,255,20,.1);}
+  .wk-cell.meet{background:rgba(168,85,247,.2);}
+  .wk-cell.task{background:rgba(0,212,255,.15);}
+  /* noon separator */
+  .wk-hour.noon{border-bottom:1px solid rgba(255,255,255,.12);}
+
+  /* HM footer */
+  .wk-footer{text-align:center;padding:5px 2px;
+    border-top:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);}
+  .wk-footer-hm{font-size:8px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.3);}
+  .today-col .wk-footer-hm{color:var(--lime);text-shadow:0 0 6px rgba(57,255,20,.5);}
+  .wk-footer-label{font-size:6px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.15);margin-top:1px;}
+
+  /* week summary row */
+  .week-summary{border-radius:13px;padding:11px 13px;background:rgba(57,255,20,.04);border:1px solid rgba(57,255,20,.14);margin-top:10px;}
+
+  /* ── MONTH VIEW — Apple Calendar style ── */
+  .ac-month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .ac-month-nav-btn{background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:16px;padding:4px 8px;}
+  .ac-month-title{font-size:15px;font-weight:700;color:rgba(255,255,255,.78);}
+  .ac-dow-row{display:grid;grid-template-columns:repeat(7,1fr);padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:2px;}
+  .ac-dow{text-align:center;font-size:10px;letter-spacing:.05em;font-weight:600;color:rgba(255,255,255,.2);}
+  .ac-dow.sun{color:rgba(248,113,113,.45);}
+  .ac-dow.sat{color:rgba(96,165,250,.45);}
+  .ac-cal{display:flex;flex-direction:column;}
+  .ac-week{border-top:1px solid rgba(255,255,255,.06);padding:2px 0 4px;}
+  .ac-week:first-child{border-top:none;}
+  /* date numbers row */
+  .ac-dates-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:3px;}
+  .ac-date-cell{display:flex;justify-content:center;align-items:center;padding:3px 0;cursor:pointer;}
+  .ac-date-num{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:50%;
+    font-size:11px;font-weight:500;color:rgba(255,255,255,.45);
+    font-variant-numeric:tabular-nums;transition:background .15s;
+  }
+  .ac-date-num.today{background:var(--rose);color:#fff;font-weight:800;box-shadow:0 0 10px rgba(244,63,94,.5);}
+  .ac-date-num.other-month{color:rgba(255,255,255,.15);}
+  .ac-date-num.is-sun{color:rgba(248,113,113,.6);}
+  .ac-date-num.is-sat{color:rgba(96,165,250,.6);}
+  /* event bar rows */
+  .ac-event-row{display:grid;grid-template-columns:repeat(7,1fr);min-height:16px;margin-bottom:2px;}
+  .ac-event-pill{
+    height:15px;border-radius:4px;padding:0 5px;
+    display:flex;align-items:center;overflow:hidden;
+    font-size:9px;font-weight:600;white-space:nowrap;cursor:pointer;
+    margin:0 1px;
+  }
+  .ac-event-pill.cl{border-radius:0 4px 4px 0;margin-left:0;padding-left:4px;}
+  .ac-event-pill.cr{border-radius:4px 0 0 4px;margin-right:0;}
+  .ac-event-pill.clr{border-radius:0;margin:0;padding-left:4px;}
+  .ac-event-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-right:3px;}
+  .ac-more{font-size:9px;color:rgba(255,255,255,.3);padding:1px 5px;cursor:pointer;text-align:center;}
+
+  /* ── CAL VIEW ── */
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-day{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;color:rgba(255,255,255,.35);cursor:pointer;transition:all .15s;position:relative;}
+  .cal-day.today{background:rgba(0,212,255,.15);color:var(--cyan);font-weight:700;border:1px solid rgba(0,212,255,.35);}
+  .cal-day.has-event::after{content:'';position:absolute;bottom:4px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:var(--lime);box-shadow:0 0 5px rgba(57,255,20,.8);}
+  .cal-day:hover{background:rgba(255,255,255,.06);}
+  .cal-dow{font-size:10px;color:rgba(255,255,255,.2);text-align:center;letter-spacing:.05em;padding-bottom:4px;}
+
+  /* ── BINDER VIEW (Netflix style) ── */
+  .netflix-section{margin-bottom:22px;}
+  .netflix-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:rgba(255,255,255,.35);margin-bottom:9px;display:flex;align-items:center;gap:7px;}
+  .netflix-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07);}
+  .netflix-row{display:flex;gap:9px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;}
+  .netflix-row::-webkit-scrollbar{height:3px;}
+  .netflix-row::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;}
+  .nf-card{flex-shrink:0;width:160px;border-radius:11px;overflow:hidden;cursor:pointer;
+    border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 8px 24px rgba(0,0,0,.5);transition:transform .18s,box-shadow .18s;}
+  .nf-card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,.65);}
+  .nf-ratio{position:relative;width:100%;padding-top:56.25%;overflow:hidden;}
+  .nf-cover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;}
+  .nf-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.75) 0%,transparent 55%);
+    display:flex;align-items:flex-end;padding:8px;}
+  .nf-overlay-title{font-size:11px;font-weight:700;color:rgba(255,255,255,.9);line-height:1.3;}
+  .nf-body{padding:8px 9px;background:rgba(255,255,255,.04);}
+  .nf-date{font-size:10px;color:rgba(255,255,255,.3);font-variant-numeric:tabular-nums;}
+  .nf-stats{display:flex;gap:8px;margin-top:4px;}
+  .nf-stat{font-size:10px;}
+  .nf-stat .n{font-weight:700;font-variant-numeric:tabular-nums;}
+
+  /* Binder drawer */
+  #binder-drawer{
+    position:fixed;inset:0;z-index:80;pointer-events:none;opacity:0;transition:opacity .25s;
+  }
+  #binder-drawer.open{pointer-events:all;opacity:1;}
+  #bd-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+  #bd-panel{
+    position:absolute;bottom:0;left:50%;transform:translate(-50%,100%);
+    width:100%;max-width:430px;border-radius:22px 22px 0 0;
+    background:rgba(10,10,16,.97);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);
+    border:1px solid rgba(255,255,255,.12);border-bottom:none;
+    padding:18px 16px 36px;max-height:70vh;overflow-y:auto;
+    transition:transform .32s cubic-bezier(.32,1,.6,1);
+  }
+  #binder-drawer.open #bd-panel{transform:translate(-50%,0);}
+  .bd-handle{width:34px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);margin:0 auto 14px;}
+  .bd-project-title{font-size:15px;font-weight:800;color:rgba(255,255,255,.85);margin-bottom:3px;}
+  .bd-project-date{font-size:11px;color:rgba(255,255,255,.3);margin-bottom:12px;font-variant-numeric:tabular-nums;}
+  .bd-tl-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+  .bd-tl-item:last-child{border-bottom:none;}
+  .bd-tl-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .bd-tl-label{font-size:12px;color:rgba(255,255,255,.55);flex:1;}
+  .bd-tl-time{font-size:10px;color:rgba(255,255,255,.25);font-variant-numeric:tabular-nums;}
+  .bd-clone-btn{
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    width:100%;margin-top:14px;padding:13px;border-radius:13px;border:none;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:700;color:#fff;
+    background:linear-gradient(135deg,#7C3AED,#A855F7);
+    box-shadow:0 0 20px rgba(168,85,247,.4);transition:box-shadow .18s;
+  }
+  .bd-clone-btn:hover{box-shadow:0 0 32px rgba(168,85,247,.6);}
+
+  /* ── MY VIEW ── */
+  .profile-hero{border-radius:18px;padding:16px;margin-bottom:12px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+    display:flex;align-items:center;gap:13px;}
+  .avatar{width:50px;height:50px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,#7C3AED,#00D4FF);
+    display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;color:#fff;
+    box-shadow:0 0 18px rgba(168,85,247,.4);}
+  .my-stat-row{display:flex;gap:8px;margin-top:12px;}
+  .my-stat{flex:1;text-align:center;padding:12px 4px;border-radius:12px;background:rgba(255,255,255,.05);}
+  .my-stat-n{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cyan);text-shadow:0 0 12px rgba(0,212,255,.4);}
+  .my-stat-l{font-size:9px;color:rgba(255,255,255,.28);margin-top:3px;}
+  .insight-card{border-radius:13px;padding:13px;background:rgba(57,255,20,.04);border:1px solid rgba(57,255,20,.13);margin-top:13px;
+    box-shadow:0 0 16px rgba(57,255,20,.05);}
+
+  /* ── BOTTOM NAV ── */
+  #gnb{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:70;
+    background:rgba(0,0,0,.86);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);
+    border-top:1px solid rgba(255,255,255,.07);}
+  .gnb-row{display:flex;align-items:center;justify-content:space-around;padding:11px 6px 28px;position:relative;}
+  .gnb-btn{display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:none;border:none;cursor:pointer;outline:none;font-family:inherit;
+    color:rgba(255,255,255,.3);padding:0 8px;transition:color .18s;}
+  .gnb-btn .gi{font-size:18px;line-height:1;transition:filter .18s;}
+  .gnb-btn .gl{font-size:10px;font-weight:500;}
+  .gnb-btn .gd{width:4px;height:4px;border-radius:50%;background:var(--cyan);opacity:0;transition:opacity .18s;}
+  .gnb-btn.on{color:var(--cyan);}
+  .gnb-btn.on .gi{filter:drop-shadow(0 0 5px rgba(0,212,255,.75));}
+  .gnb-btn.on .gd{opacity:1;box-shadow:0 0 6px rgba(0,212,255,.9);}
+  .gnb-gap{width:60px;flex-shrink:0;}
+  .fab-wrap{position:absolute;left:50%;top:-26px;transform:translateX(-50%);}
+  .fab{width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;font-family:inherit;
+    background:linear-gradient(140deg,#6D28D9,#A855F7 55%,#C084FC);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    box-shadow:0 0 26px rgba(168,85,247,.68),0 0 60px rgba(168,85,247,.26),0 8px 22px rgba(0,0,0,.55);
+    transition:transform .18s,box-shadow .18s;}
+  .fab:hover{transform:scale(1.1);}
+  .fab .fi{color:#fff;font-size:19px;line-height:1;}
+  .fab .fl{color:rgba(255,255,255,.8);font-size:8px;font-weight:700;letter-spacing:.04em;}
+
+  /* ── VIEW SWITCHER ── */
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* section divider */
+  .sec-div{display:flex;align-items:center;gap:9px;margin:18px 0 12px;}
+  .sec-div hr{flex:1;border:none;border-top:1px solid rgba(255,255,255,.07);}
+  .sec-div span{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.2);white-space:nowrap;}
+
+  /* notification dot */
+  .notif{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:#F43F5E;box-shadow:0 0 6px rgba(244,63,94,.8);}
+
+  /* binder sub-tabs */
+  .binder-tabs{display:flex;border-radius:11px;overflow:hidden;border:1px solid rgba(255,255,255,.09);margin-bottom:14px;background:rgba(255,255,255,.03);}
+  .binder-tab{flex:1;padding:9px 4px;text-align:center;font-size:12px;font-weight:600;color:rgba(255,255,255,.28);cursor:pointer;transition:all .18s;border:none;background:none;font-family:inherit;letter-spacing:.02em;}
+  .binder-tab.on{background:rgba(255,255,255,.09);color:rgba(255,255,255,.8);}
+  .binder-view{display:none;}
+  .binder-view.on{display:block;}
+  </style>
+</head>
+<body>
+<div id="amb"></div>
+<div id="app">
+
+<!-- ══════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════ -->
+<header id="hdr">
+  <div class="hdr-row">
+    <div class="sleep-pair"><span class="bead bead-w"></span><span>기상</span><strong>06:30</strong></div>
+    <div class="ai-chip"><i class="fa-solid fa-wand-magic-sparkles" style="font-size:9px"></i>AI 분석 완료</div>
+    <div class="sleep-pair" style="flex-direction:row-reverse"><span class="bead bead-s"></span><span>취침</span><strong>23:30</strong></div>
+  </div>
+  <div class="avail">
+    <p class="avail-eye">✨ &nbsp;오늘의 순수 가용 시간</p>
+    <div class="avail-num">6시간 30분</div>
+    <div class="avail-meta">
+      <span>총 가동 <strong style="color:rgba(255,255,255,.44)">17h</strong></span>
+      <span class="sep">·</span>
+      <span>루틴 <strong style="color:rgba(255,255,255,.44)">10h 30m</strong></span>
+      <span class="sep">·</span>
+      <span class="hi">빈틈 <strong>6h 30m</strong></span>
+    </div>
+    <div class="avail-bar"><div class="avail-fill"></div></div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════ -->
+<main id="main">
+
+  <!-- ── HOME VIEW ── -->
+  <div id="view-home" class="view active">
+  <div id="home-layout">
+    <div id="side-tabs">
+      <button class="stab on" data-hview="daily">일간</button>
+      <button class="stab"    data-hview="weekly">주간</button>
+      <button class="stab"    data-hview="monthly">월간</button>
+    </div>
+    <div id="home-content">
+
+    <!-- ════ DAILY VIEW ════ -->
+    <div class="home-view on" id="hview-daily">
+
+      <!-- 1. Date strip -->
+      <div class="date-strip">
+        <div>
+          <div class="date-boxes" id="date-boxes"></div>
+          <div class="dow-row" id="dow-row"></div>
+        </div>
+        <div class="dday-badge">
+          <div class="dday-label">d-day</div>
+          <div class="dday-num">D-15</div>
+        </div>
+      </div>
+
+      <!-- 2. Stats row -->
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-label">집중 시간</div>
+          <div class="stat-val lime" id="total-time">4H 10M</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">wake up</div>
+          <div class="stat-val amber">06:30</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">sleep</div>
+          <div class="stat-val indigo">23:30</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">완료 과제</div>
+          <div class="stat-val" style="color:rgba(255,255,255,.6)" id="done-count">2 / 4</div>
+        </div>
+      </div>
+
+      <!-- 3. Affirmation card -->
+      <div class="affirmation">
+        <textarea class="affirmation-text" rows="2" placeholder="오늘의 다짐을 적어보세요...">매일 조금씩의 노력이 큰 성과를 이룬다.
+이 말을 명심하며, 파이팅 !!</textarea>
+        <div class="bgm-chip">
+          <i class="fa-solid fa-music" style="font-size:9px"></i>
+          <input class="bgm-input" placeholder="듣고 있는 음악..." value="아이유 - 밤편지"/>
+        </div>
+      </div>
+
+      <!-- 4. Main split: task list + time tracker -->
+      <div class="daily-main">
+
+        <!-- LEFT: category task list -->
+        <div class="task-col" id="task-col">
+
+          <div class="task-cat-label">
+            <span style="color:rgba(251,191,36,.7)">● 캠프 기획</span>
+          </div>
+          <div class="task-item done" onclick="toggleTask(this)">
+            <div class="task-cb"><i class="fa-solid fa-check task-cb-check"></i></div>
+            <span class="task-name">초등 3themes CAMP 대진표 짜기</span>
+          </div>
+
+          <div class="task-cat-label">
+            <span style="color:rgba(0,212,255,.7)">● 영상 제작</span>
+          </div>
+          <div class="task-item" onclick="toggleTask(this)">
+            <div class="task-cb"><i class="fa-solid fa-check task-cb-check"></i></div>
+            <span class="task-name">파이널컷 색보정 및 4K 렌더링</span>
+          </div>
+
+          <div class="task-cat-label">
+            <span style="color:rgba(168,85,247,.7)">● 콘텐츠</span>
+          </div>
+          <div class="task-item" onclick="toggleTask(this)">
+            <div class="task-cb"><i class="fa-solid fa-check task-cb-check"></i></div>
+            <span class="task-name">여름캠프 홍보 숏폼 훅 작성</span>
+          </div>
+
+          <div class="task-cat-label">
+            <span style="color:rgba(34,197,94,.7)">● 행사 준비</span>
+          </div>
+          <div class="task-item done" onclick="toggleTask(this)">
+            <div class="task-cb"><i class="fa-solid fa-check task-cb-check"></i></div>
+            <span class="task-name">70인분 행사 식재료 체크</span>
+          </div>
+
+          <!-- inline inbox -->
+          <div class="inbox-row" style="margin-top:14px">
+            <i class="fa-solid fa-plus" style="font-size:10px;color:rgba(57,255,20,.4)"></i>
+            <input class="inbox-in" id="inbox-in" placeholder="할 일 추가... ↵ Enter" autocomplete="off"/>
+            <span class="inbox-hint">↵</span>
+          </div>
+
+        </div><!-- /task-col -->
+
+        <!-- RIGHT: time tracker -->
+        <div class="time-tracker" id="time-tracker">
+          <!-- built by JS -->
+        </div>
+
+      </div><!-- /daily-main -->
+
+      <!-- 5. Today's review -->
+      <div class="review-card">
+        <div class="review-label">today's review</div>
+        <textarea class="review-text" placeholder="오늘 하루를 돌아보며...&#10;잘한 것, 아쉬운 것, 내일의 나에게 한마디."></textarea>
+      </div>
+
+    </div><!-- /hview-daily -->
+
+    <!-- ════ WEEKLY VIEW ════ -->
+    <div class="home-view" id="hview-weekly">
+      <!-- nav -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <button id="week-prev" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:15px;padding:4px 6px"><i class="fa-solid fa-chevron-left"></i></button>
+        <span id="week-range-label" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.55)"></span>
+        <button id="week-next" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:15px;padding:4px 6px"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      <!-- MY GOAL + star rating -->
+      <div class="week-goal-bar">
+        <span class="week-goal-label">My Goal</span>
+        <input class="week-goal-input" placeholder="이번 주 목표를 입력하세요..." id="week-goal-input"/>
+        <div class="week-stars" id="week-stars">
+          <span class="week-star" data-s="1">★</span>
+          <span class="week-star" data-s="2">★</span>
+          <span class="week-star" data-s="3">★</span>
+          <span class="week-star" data-s="4">★</span>
+          <span class="week-star" data-s="5">★</span>
+        </div>
+      </div>
+      <!-- 7-column planner table -->
+      <div class="week-wrap">
+        <div class="week-table" id="week-table"></div>
+      </div>
+      <!-- summary -->
+      <div class="week-summary">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:rgba(255,255,255,.35)">이번 주 총 집중 시간</span>
+          <span style="font-size:16px;font-weight:900;color:var(--lime);text-shadow:0 0 12px rgba(57,255,20,.5);font-variant-numeric:tabular-nums" id="week-total-label">23H 40M</span>
+        </div>
+        <div style="margin-top:7px;height:2px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden">
+          <div style="width:58%;height:100%;border-radius:2px;background:linear-gradient(90deg,rgba(57,255,20,.5),rgba(57,255,20,.9));box-shadow:0 0 8px rgba(57,255,20,.4)"></div>
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,.22);margin-top:5px">전주 대비 <span style="color:rgba(57,255,20,.6)">+3H 20M 증가</span></div>
+      </div>
+    </div>
+
+    <!-- ════ MONTHLY VIEW — Apple Calendar ════ -->
+    <div class="home-view" id="hview-monthly">
+      <div class="ac-month-nav">
+        <button class="ac-month-nav-btn" id="month-prev"><i class="fa-solid fa-chevron-left"></i></button>
+        <span class="ac-month-title" id="ac-month-title"></span>
+        <button class="ac-month-nav-btn" id="month-next"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      <div class="ac-dow-row">
+        <div class="ac-dow sun">일</div><div class="ac-dow">월</div><div class="ac-dow">화</div>
+        <div class="ac-dow">수</div><div class="ac-dow">목</div><div class="ac-dow">금</div><div class="ac-dow sat">토</div>
+      </div>
+      <div class="ac-cal" id="ac-cal"></div>
+    </div>
+
+    </div><!-- /home-content -->
+  </div><!-- /home-layout -->
+  </div><!-- /view-home -->
+
+  <!-- ── CALENDAR VIEW ── -->
+  <div id="view-cal" class="view" style="padding:14px 12px 0">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px"><i class="fa-solid fa-chevron-left"></i></button>
+      <span style="font-size:15px;font-weight:700;color:rgba(255,255,255,.75)">2026년 7월</span>
+      <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+    <div class="cal-grid" style="margin-bottom:6px">
+      <div class="cal-dow">일</div><div class="cal-dow">월</div><div class="cal-dow">화</div>
+      <div class="cal-dow">수</div><div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div>
+    </div>
+    <div class="cal-grid" id="cal-days"></div>
+    <div class="sec-div"><hr/><span>이번 주 이벤트</span><hr/></div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:13px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)">
+        <div style="width:26px;height:26px;border-radius:8px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);display:flex;align-items:center;justify-content:center;font-size:11px"><i class="fa-solid fa-film" style="color:rgba(0,212,255,.8)"></i></div>
+        <div style="flex:1"><div style="font-size:12px;color:rgba(255,255,255,.5)">파이널컷 4K 렌더링 마감</div><div style="font-size:10px;color:rgba(255,255,255,.22);font-variant-numeric:tabular-nums">7월 21일 (화) · 15:30</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:13px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)">
+        <div style="width:26px;height:26px;border-radius:8px;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);display:flex;align-items:center;justify-content:center;font-size:11px"><i class="fa-solid fa-trophy" style="color:rgba(168,85,247,.8)"></i></div>
+        <div style="flex:1"><div style="font-size:12px;color:rgba(255,255,255,.5)">여름 캠프 D-day</div><div style="font-size:10px;color:rgba(255,255,255,.22);font-variant-numeric:tabular-nums">7월 25일 (토) · 09:00</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BINDER VIEW (Netflix) ── -->
+  <div id="view-binder" class="view" style="padding:14px 12px 0">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <span style="font-size:15px;font-weight:700;color:rgba(255,255,255,.78)"><i class="fa-solid fa-book-open" style="color:rgba(168,85,247,.7);margin-right:7px"></i>바인더</span>
+      <span style="font-size:11px;color:var(--muted)">총 23개 기록</span>
+    </div>
+
+    <div class="binder-tabs">
+      <button class="binder-tab on" data-bview="daily-b">일간</button>
+      <button class="binder-tab"   data-bview="weekly-b">주간</button>
+      <button class="binder-tab"   data-bview="monthly-b">월간</button>
+    </div>
+
+    <!-- DAILY binder -->
+    <div class="binder-view on" id="bview-daily-b">
+      <div class="netflix-section">
+        <div class="netflix-label">이번 주</div>
+        <div class="netflix-row">
+          <div class="nf-card" onclick="openDrawer('오늘','7월 20일 (일)','today')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#001206,#003014)">📋</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">7월 20일 · 오늘</div></div></div>
+            <div class="nf-body"><div class="nf-date">2026.07.20 일요일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">63%</span> 활용</span><span class="nf-stat"><span class="n" style="color:var(--cyan)">4h</span> 집중</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('토요일','7월 19일 (토)','sat')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#001a33,#003566)">📊</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">7월 19일 · 토</div></div></div>
+            <div class="nf-body"><div class="nf-date">2026.07.19 토요일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">91%</span> 활용</span><span class="nf-stat"><span class="n" style="color:var(--cyan)">7h</span> 집중</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('금요일','7월 18일 (금)','fri')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#1a0533,#3b0764)">🎬</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">7월 18일 · 금</div></div></div>
+            <div class="nf-body"><div class="nf-date">2026.07.18 금요일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:rgba(255,180,50,.8)">63%</span> 활용</span><span class="nf-stat"><span class="n" style="color:var(--cyan)">3h</span> 집중</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('목요일','7월 17일 (목)','thu')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#0a1a0a,#1a3a1a)">✅</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">7월 17일 · 목</div></div></div>
+            <div class="nf-body"><div class="nf-date">2026.07.17 목요일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">100%</span> 활용</span><span class="nf-stat"><span class="n" style="color:var(--cyan)">4.5h</span> 집중</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="netflix-section">
+        <div class="netflix-label">지난 주</div>
+        <div class="netflix-row">
+          <div class="nf-card" onclick="openDrawer('지난주 일','7월 13일 (일)','')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#2d0a0a,#5c1414)">🍱</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">7월 13일</div></div></div>
+            <div class="nf-body"><div class="nf-date">2026.07.13 일요일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:rgba(255,180,50,.8)">72%</span> 활용</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('지난주 토','7월 12일 (토)','')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#0c1a0c,#14421a)">🏆</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">7월 12일</div></div></div>
+            <div class="nf-body"><div class="nf-date">2026.07.12 토요일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">88%</span> 활용</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('지난주 금','7월 11일 (금)','')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#1a0a2e,#2d1452)">✂️</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">7월 11일</div></div></div>
+            <div class="nf-body"><div class="nf-date">2026.07.11 금요일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--cyan)">85%</span> 활용</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEEKLY binder -->
+    <div class="binder-view" id="bview-weekly-b">
+      <div class="netflix-section">
+        <div class="netflix-label">최근 4주</div>
+        <div class="netflix-row">
+          <div class="nf-card" onclick="openDrawer('이번 주','W30 · 7/14~7/20','week')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#001206,#003014)">📅</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">이번 주 W30</div></div></div>
+            <div class="nf-body"><div class="nf-date">7월 14일 — 7월 20일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">78%</span> 평균</span><span class="nf-stat"><span class="n" style="color:var(--cyan)">23h</span> 집중</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('지난 주','W29 · 7/7~7/13','')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#001a33,#003566)">📈</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">지난 주 W29</div></div></div>
+            <div class="nf-body"><div class="nf-date">7월 7일 — 7월 13일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">85%</span> 평균</span><span class="nf-stat"><span class="n" style="color:var(--cyan)">38h</span> 집중</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('2주 전','W28 · 6/30~7/6','')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#1a0533,#3b0764)">📉</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">2주 전 W28</div></div></div>
+            <div class="nf-body"><div class="nf-date">6월 30일 — 7월 6일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:rgba(255,180,50,.8)">71%</span> 평균</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONTHLY binder -->
+    <div class="binder-view" id="bview-monthly-b">
+      <div class="netflix-section">
+        <div class="netflix-label">2026년</div>
+        <div class="netflix-row">
+          <div class="nf-card" onclick="openDrawer('7월','2026년 7월 — 여름캠프 시즌','month')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#001206,#003014,#001a0a)">🌿</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">2026년 7월</div></div></div>
+            <div class="nf-body"><div class="nf-date">진행 중 · 20일째</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">78%</span> 활용</span><span class="nf-stat"><span class="n" style="color:var(--violet)">8</span> 완료</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('6월','2026년 6월 — 영상 프로덕션','')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#001a33,#003566)">🌊</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">2026년 6월</div></div></div>
+            <div class="nf-body"><div class="nf-date">완료 · 30일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:var(--lime)">85%</span> 활용</span><span class="nf-stat"><span class="n" style="color:var(--violet)">15</span> 완료</span></div></div>
+          </div>
+          <div class="nf-card" onclick="openDrawer('5월','2026년 5월 — 행사 기획','')">
+            <div class="nf-ratio"><div class="nf-cover" style="background:linear-gradient(135deg,#2d1a00,#5c3600)">🌸</div>
+              <div class="nf-overlay"><div class="nf-overlay-title">2026년 5월</div></div></div>
+            <div class="nf-body"><div class="nf-date">완료 · 31일</div>
+              <div class="nf-stats"><span class="nf-stat"><span class="n" style="color:rgba(255,180,50,.8)">72%</span> 활용</span><span class="nf-stat"><span class="n" style="color:var(--violet)">11</span> 완료</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /view-binder -->
+
+  <!-- ── MY VIEW ── -->
+  <div id="view-my" class="view" style="padding:14px 12px 0">
+    <div class="profile-hero">
+      <div class="avatar">김</div>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.85)">김준열 님</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35);margin-top:3px">디지털 콘텐츠 크리에이터 · 이벤트 디렉터</div>
+        <div style="font-size:11px;color:rgba(57,255,20,.55);margin-top:4px"><i class="fa-solid fa-circle-check" style="margin-right:4px"></i>AI 퍼스낼리티 분석 완료</div>
+      </div>
+    </div>
+    <div class="my-stat-row">
+      <div class="my-stat"><div class="my-stat-n">89%</div><div class="my-stat-l">빈틈 활용률</div></div>
+      <div class="my-stat"><div class="my-stat-n" style="color:var(--lime);text-shadow:0 0 12px rgba(57,255,20,.5)">23h</div><div class="my-stat-l">이번 주 집중</div></div>
+      <div class="my-stat"><div class="my-stat-n" style="color:var(--violet);text-shadow:0 0 12px rgba(168,85,247,.5)">12</div><div class="my-stat-l">완료 프로젝트</div></div>
+    </div>
+    <div class="insight-card">
+      <p style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.7">오늘 <strong style="color:rgba(57,255,20,.7)">08:00–10:00</strong> 빈틈이 집중 작업에 최적입니다.<br/>파이널컷 4K 렌더링을 이 슬롯에 배치하면 마감 전 완료 가능합니다.</p>
+    </div>
+  </div>
+
+</main><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════════
+     BINDER DRAWER
+══════════════════════════════════════════ -->
+<div id="binder-drawer">
+  <div id="bd-backdrop" onclick="closeDrawer()"></div>
+  <div id="bd-panel">
+    <div class="bd-handle"></div>
+    <div class="bd-project-title" id="bd-title">오늘</div>
+    <div class="bd-project-date" id="bd-date">7월 20일 (일)</div>
+    <div id="bd-timeline">
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:rgba(255,180,50,.8)"></span><span class="bd-tl-label">기상 · 아침 루틴</span><span class="bd-tl-time">06:30 — 08:00</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:var(--lime);box-shadow:0 0 5px rgba(57,255,20,.7)"></span><span class="bd-tl-label" style="color:rgba(57,255,20,.7)">[2시간 빈틈] ← 집중 작업</span><span class="bd-tl-time">08:00 — 10:00</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:rgba(255,160,50,.7)"></span><span class="bd-tl-label">에녹이 등원 픽업</span><span class="bd-tl-time">10:00 — 11:00</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:var(--lime);box-shadow:0 0 5px rgba(57,255,20,.7)"></span><span class="bd-tl-label" style="color:rgba(57,255,20,.7)">[2시간 빈틈] ← CAMP 대진표</span><span class="bd-tl-time">11:00 — 13:00</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:rgba(100,200,100,.6)"></span><span class="bd-tl-label">점심 · 휴식</span><span class="bd-tl-time">13:00 — 14:00</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:rgba(168,85,247,.7)"></span><span class="bd-tl-label">IM Learning 주간 회의</span><span class="bd-tl-time">14:00 — 15:30</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:var(--lime);box-shadow:0 0 5px rgba(57,255,20,.7)"></span><span class="bd-tl-label" style="color:rgba(57,255,20,.7)">[1h 30m 빈틈] ← 숏폼 작성</span><span class="bd-tl-time">15:30 — 17:00</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:rgba(240,100,80,.6)"></span><span class="bd-tl-label">저녁 · 가족 시간</span><span class="bd-tl-time">18:40 — 21:40</span></div>
+      <div class="bd-tl-item"><span class="bd-tl-dot" style="background:var(--lime);box-shadow:0 0 5px rgba(57,255,20,.7)"></span><span class="bd-tl-label" style="color:rgba(57,255,20,.7)">[1h 20m 빈틈] ← 야간 작업</span><span class="bd-tl-time">21:40 — 23:00</span></div>
+    </div>
+    <button class="bd-clone-btn" onclick="cloneToInbox()">
+      <i class="fa-solid fa-copy"></i> 인박스로 복제 (템플릿 재사용)
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     BOTTOM NAV
+══════════════════════════════════════════ -->
+<nav id="gnb">
+  <div class="gnb-row">
+    <button class="gnb-btn on" data-view="home">
+      <span class="gi"><i class="fa-solid fa-house"></i></span>
+      <span class="gl">홈</span><span class="gd"></span>
+    </button>
+    <button class="gnb-btn" data-view="cal">
+      <span class="gi"><i class="fa-regular fa-calendar"></i></span>
+      <span class="gl">캘린더</span><span class="gd"></span>
+    </button>
+    <div class="gnb-gap"></div>
+    <button class="gnb-btn" data-view="binder">
+      <span class="gi"><i class="fa-solid fa-book-open"></i></span>
+      <span class="gl">바인더</span><span class="gd"></span>
+    </button>
+    <button class="gnb-btn" data-view="my">
+      <span class="gi" style="position:relative"><i class="fa-regular fa-user"></i><span class="notif"></span></span>
+      <span class="gl">마이</span><span class="gd"></span>
+    </button>
+    <div class="fab-wrap">
+      <button class="fab" onclick="focusInbox()" aria-label="빠른 추가">
+        <span class="fi"><i class="fa-solid fa-plus"></i></span>
+        <span class="fl">빠른 추가</span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<script>
+/* ════════════════════════════════════
+   DATE STRIP builder
+════════════════════════════════════ */
+(function(){
+  var now = new Date(2026,6,20);
+  var y = now.getFullYear().toString();
+  var m = String(now.getMonth()+1).padStart(2,'0');
+  var d = String(now.getDate()).padStart(2,'0');
+  var str = y.slice(2)+m+d; // 260720
+  var boxes = document.getElementById('date-boxes');
+  var parts = [str.slice(0,2), str.slice(2,4), str.slice(4,6)];
+  parts.forEach(function(part,pi){
+    part.split('').forEach(function(ch){
+      var b = document.createElement('div');
+      b.className='date-box'; b.textContent=ch;
+      boxes.appendChild(b);
+    });
+    if(pi<2){
+      var sep=document.createElement('div');
+      sep.className='date-sep'; boxes.appendChild(sep);
+    }
+  });
+  var dows=['M','T','W','T','F','S','S'];
+  var dow = now.getDay(); // 0=Sun
+  var order=[1,2,3,4,5,6,0]; // Mon…Sun order
+  var row=document.getElementById('dow-row');
+  order.forEach(function(i,idx){
+    var el=document.createElement('div');
+    el.className='dow-item'+(i===dow?' on':'');
+    el.textContent=dows[idx];
+    row.appendChild(el);
+  });
+})();
+
+/* ════════════════════════════════════
+   TIME TRACKER builder
+════════════════════════════════════ */
+(function(){
+  // schedule: [startH (float), endH, type]
+  var schedule=[
+    [6,8,'routine'],   // 기상 루틴
+    [8,10,'ws'],       // 빈틈
+    [10,11,'routine'], // 등원
+    [11,13,'ws'],      // 빈틈
+    [13,14,'routine'], // 점심
+    [14,15.5,'meet'],  // 회의
+    [15.5,17,'ws'],    // 빈틈
+    [17,18,'routine'], // 하원
+    [18,18.67,'ws'],   // 40분
+    [18.67,21.67,'routine'], // 저녁
+    [21.67,23,'ws'],   // 빈틈
+    [23,24,'routine'], // 취침
+  ];
+  var hours=[];
+  for(var h=6;h<=24;h++) hours.push(h);
+
+  var tracker=document.getElementById('time-tracker');
+  hours.forEach(function(h){
+    var type='empty';
+    schedule.forEach(function(s){
+      if(h>=s[0] && h<s[1]) type=s[2];
+    });
+    var row=document.createElement('div');
+    row.className='tt-row';
+    var lbl=document.createElement('div');
+    lbl.className='tt-hour';
+    lbl.textContent=h===24?'':h;
+    var blk=document.createElement('div');
+    blk.className='tt-block '+type;
+    row.appendChild(lbl); row.appendChild(blk);
+    tracker.appendChild(row);
+  });
+})();
+
+/* ════════════════════════════════════
+   TASK toggle + done count
+════════════════════════════════════ */
+function toggleTask(el){
+  el.classList.toggle('done');
+  updateDoneCount();
+}
+function updateDoneCount(){
+  var all=document.querySelectorAll('#task-col .task-item').length;
+  var done=document.querySelectorAll('#task-col .task-item.done').length;
+  var el=document.getElementById('done-count');
+  if(el) el.textContent=done+' / '+all;
+}
+
+/* ════════════════════════════════════
+   INLINE INBOX (Enter to add)
+════════════════════════════════════ */
+document.getElementById('inbox-in').addEventListener('keydown',function(e){
+  if(e.key!=='Enter') return;
+  var val=this.value.trim();
+  if(!val) return;
+  e.preventDefault();
+
+  var col=document.getElementById('task-col');
+  var inboxRow=col.querySelector('.inbox-row');
+
+  // Create category label
+  var cat=document.createElement('div');
+  cat.className='task-cat-label';
+  cat.innerHTML='<span style="color:rgba(168,85,247,.7)">● 인박스</span>';
+
+  // Create task item
+  var item=document.createElement('div');
+  item.className='task-item';
+  item.setAttribute('onclick','toggleTask(this)');
+  item.innerHTML='<div class="task-cb"><i class="fa-solid fa-check task-cb-check"></i></div>'+
+    '<span class="task-name">'+val+'</span>';
+
+  col.insertBefore(cat,inboxRow);
+  col.insertBefore(item,inboxRow);
+  this.value='';
+  updateDoneCount();
+
+  // flash glow
+  item.style.boxShadow='0 0 14px rgba(168,85,247,.4)';
+  setTimeout(function(){ item.style.boxShadow=''; },600);
+});
+
+function focusInbox(){
+  // switch to home daily
+  document.querySelectorAll('.gnb-btn').forEach(function(b){b.classList.remove('on');});
+  document.querySelector('.gnb-btn[data-view="home"]').classList.add('on');
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  document.getElementById('view-home').classList.add('active');
+  document.querySelectorAll('.stab').forEach(function(b){b.classList.remove('on');});
+  document.querySelector('.stab[data-hview="daily"]').classList.add('on');
+  document.querySelectorAll('.home-view').forEach(function(v){v.classList.remove('on');});
+  document.getElementById('hview-daily').classList.add('on');
+  setTimeout(function(){
+    var inp=document.getElementById('inbox-in');
+    inp.focus();
+    inp.scrollIntoView({behavior:'smooth',block:'center'});
+  },100);
+}
+
+/* ════════════════════════════════════
+   GNB tabs
+════════════════════════════════════ */
+document.querySelectorAll('.gnb-btn[data-view]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.gnb-btn').forEach(function(b){b.classList.remove('on');});
+    btn.classList.add('on');
+    document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+    var el=document.getElementById('view-'+btn.getAttribute('data-view'));
+    if(el) el.classList.add('active');
+    document.getElementById('main').scrollTop=0;
+  });
+});
+
+/* ════════════════════════════════════
+   HOME side tabs
+════════════════════════════════════ */
+document.querySelectorAll('.stab[data-hview]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.stab').forEach(function(b){b.classList.remove('on');});
+    document.querySelectorAll('.home-view').forEach(function(v){v.classList.remove('on');});
+    btn.classList.add('on');
+    var el=document.getElementById('hview-'+btn.getAttribute('data-hview'));
+    if(el) el.classList.add('on');
+  });
+});
+
+/* ════════════════════════════════════
+   CALENDAR (July 2026)
+════════════════════════════════════ */
+(function(){
+  var grid=document.getElementById('cal-days');
+  if(!grid) return;
+  var startDow=3,days=31,today=20,hasEvent=[18,21,25];
+  var html='';
+  for(var i=0;i<startDow;i++) html+='<div class="cal-day"></div>';
+  for(var d=1;d<=days;d++){
+    var cls='cal-day';
+    if(d===today) cls+=' today';
+    if(hasEvent.includes(d)) cls+=' has-event';
+    html+='<div class="'+cls+'">'+d+'</div>';
+  }
+  grid.innerHTML=html;
+})();
+
+/* ════════════════════════════════════
+   WEEK VIEW — physical planner layout
+   SUN first, time grid 6AM→5AM
+════════════════════════════════════ */
+var weekOffset=0;
+
+// schedule per day: array of [startH, endH, cellType]
+// cellType: 'routine'|'ws'|'meet'|'task'|''
+var WEEK_SCHEDULE={
+  0:[[6,8,'routine'],[8,10,'ws'],[10,11,'routine'],[11,13,'ws'],[13,14,'routine'],[14,15.5,'meet'],[15.5,17,'ws'],[17,18,'routine'],[18,18.67,'ws'],[18.67,21.67,'routine'],[21.67,23,'ws'],[23,24,'routine']],
+  1:[[6,8,'routine'],[8,10,'ws'],[10,11,'routine'],[11,13,'task'],[13,14,'routine'],[14,16,'meet'],[16,18,'ws'],[18,21.67,'routine'],[21.67,23,'ws'],[23,24,'routine']],
+  2:[[6,8,'routine'],[8,9.5,'ws'],[9.5,11,'routine'],[11,13,'task'],[13,14,'routine'],[14,15,'ws'],[15,18,'routine'],[18,20,'ws'],[20,21.67,'routine'],[21.67,23,'ws'],[23,24,'routine']],
+  3:[[6,8,'routine'],[8,9.5,'ws'],[9.5,10.5,'task'],[10.5,14,'routine'],[14,15.5,'meet'],[15.5,17,'ws'],[17,18,'routine'],[18,21.67,'routine'],[21.67,23,'task'],[23,24,'routine']],
+  4:[[6,8,'routine'],[8,10,'ws'],[10,11,'routine'],[11,13,'task'],[13,14,'routine'],[14,17,'routine'],[17,19,'ws'],[19,21.67,'routine'],[21.67,23,'ws'],[23,24,'routine']],
+  5:[[6,9,'ws'],[9,11,'task'],[11,13,'ws'],[13,14,'routine'],[14,16,'task'],[16,18,'ws'],[18,21.67,'routine'],[21.67,23,'ws'],[23,24,'routine']],
+  6:[[6,8,'ws'],[8,10,'task'],[10,12,'ws'],[12,13,'routine'],[13,15,'task'],[15,17,'ws'],[17,18,'routine'],[18,21.67,'routine'],[21.67,23,'ws'],[23,24,'routine']],
+};
+// total focus hours per day
+var WEEK_HM={0:'4H 10M',1:'5H 30M',2:'4H 00M',3:'3H 30M',4:'5H 00M',5:'8H 00M',6:'6H 30M'};
+
+// hours in the grid: 6..24 (AM), then 1..5 (=25..29)
+var GRID_HOURS=(function(){
+  var h=[];
+  for(var i=6;i<=24;i++) h.push(i);
+  for(var i=1;i<=5;i++) h.push(i);
+  return h;
+})(); // 24 rows
+
+function isoDate(d){return d.toISOString().slice(0,10);}
+
+function getCellType(dow, h){
+  // h is display hour (1–24, where 24=midnight, 1–5=past midnight)
+  // convert to float: 24→24.0, 1→25, 2→26 etc.
+  var fh = h<=5 ? h+24 : h;
+  var sched=WEEK_SCHEDULE[dow]||[];
+  for(var i=0;i<sched.length;i++){
+    if(fh>=sched[i][0] && fh<sched[i][1]) return sched[i][2];
+  }
+  return '';
+}
+
+function buildWeek(){
+  var today=new Date(2026,6,20);
+  var todayDow=today.getDay(); // 0=Sun
+  // Week starts on Sunday
+  var sun=new Date(today);
+  sun.setDate(today.getDate()-todayDow+(weekOffset*7));
+  var sat=new Date(sun); sat.setDate(sun.getDate()+6);
+  var fmt=function(d){return(d.getMonth()+1)+'/'+d.getDate();};
+  document.getElementById('week-range-label').textContent=
+    (sun.getMonth()+1)+'월 '+sun.getDate()+'일 — '+(sat.getMonth()+1)+'월 '+sat.getDate()+'일';
+
+  var DOWS=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  var todayStr=isoDate(today);
+  var table=document.getElementById('week-table');
+  table.innerHTML='';
+
+  for(var i=0;i<7;i++){
+    var d=new Date(sun); d.setDate(sun.getDate()+i);
+    var ds=isoDate(d);
+    var isToday=ds===todayStr;
+    var dow=d.getDay(); // 0–6
+
+    var col=document.createElement('div');
+    col.className='wk-col'+(isToday?' today-col':'');
+
+    // header
+    var head=document.createElement('div');
+    head.className='wk-head';
+    head.innerHTML='<div class="wk-head-date">'+fmt(d)+'</div><div class="wk-head-dow">'+DOWS[dow]+'</div>';
+    head.addEventListener('click',switchToDaily);
+    col.appendChild(head);
+
+    // memo zone (8 ruled lines → textarea)
+    var memo=document.createElement('div');
+    memo.className='wk-memo';
+    var ta=document.createElement('textarea');
+    ta.className='wk-memo-input';
+    ta.rows=8;
+    ta.placeholder=isToday?'오늘':'';
+    memo.appendChild(ta);
+    col.appendChild(memo);
+
+    // time grid
+    var grid=document.createElement('div');
+    grid.className='wk-time-grid';
+    GRID_HOURS.forEach(function(h){
+      var row=document.createElement('div');
+      row.className='wk-hour'+(h===12?' noon':'');
+      var num=document.createElement('div');
+      num.className='wk-hour-num';
+      num.textContent=h===24?'':h;
+      var cells=document.createElement('div');
+      cells.className='wk-hour-cells';
+      var type=getCellType(dow,h);
+      // 3 sub-cells
+      for(var c=0;c<3;c++){
+        var cell=document.createElement('div');
+        cell.className='wk-cell'+(type?' '+type:'');
+        cells.appendChild(cell);
+      }
+      row.appendChild(num); row.appendChild(cells);
+      grid.appendChild(row);
+    });
+    col.appendChild(grid);
+
+    // HM footer
+    var footer=document.createElement('div');
+    footer.className='wk-footer';
+    footer.innerHTML='<div class="wk-footer-hm">'+(WEEK_HM[dow]||'—')+'</div><div class="wk-footer-label">집중</div>';
+    col.appendChild(footer);
+
+    table.appendChild(col);
+  }
+}
+
+function switchToDaily(){
+  document.querySelectorAll('.stab').forEach(function(b){b.classList.remove('on');});
+  document.querySelectorAll('.home-view').forEach(function(v){v.classList.remove('on');});
+  document.querySelector('.stab[data-hview="daily"]').classList.add('on');
+  document.getElementById('hview-daily').classList.add('on');
+  document.getElementById('main').scrollTop=0;
+}
+
+buildWeek();
+document.getElementById('week-prev').addEventListener('click',function(){weekOffset--;buildWeek();});
+document.getElementById('week-next').addEventListener('click',function(){weekOffset++;buildWeek();});
+
+/* star rating */
+(function(){
+  var rating=0;
+  document.getElementById('week-stars').addEventListener('click',function(e){
+    var s=e.target.closest('.week-star');
+    if(!s) return;
+    rating=parseInt(s.getAttribute('data-s'));
+    document.querySelectorAll('.week-star').forEach(function(el){
+      el.classList.toggle('on', parseInt(el.getAttribute('data-s'))<=rating);
+    });
+  });
+})();
+
+/* ════════════════════════════════════
+   MONTH VIEW — Apple Calendar style
+════════════════════════════════════ */
+var monthYear=2026,monthIdx=6;
+
+var AC_EVENTS=[
+  {id:1, title:'가정훈련+사역자 리트릿', start:'2026-06-28', end:'2026-07-01', bg:'rgba(88,64,22,.9)', fg:'#D4A054'},
+  {id:2, title:'4차 게이트웨이',          start:'2026-06-29', end:'2026-07-01', bg:'rgba(115,28,42,.9)', fg:'#F87171'},
+  {id:3, title:'사라 생일',               start:'2026-07-01', end:'2026-07-01', bg:'rgba(25,55,100,.9)', fg:'#60A5FA'},
+  {id:4, title:'유이 생일',               start:'2026-07-02', end:'2026-07-02', bg:'rgba(25,55,100,.9)', fg:'#60A5FA'},
+  {id:5, title:'9:20 자습감독',           start:'2026-07-03', end:'2026-07-03', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:6, title:'속초 고비캠',             start:'2026-07-04', end:'2026-07-05', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:7, title:'청소 방송',               start:'2026-07-04', end:'2026-07-04', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:8, title:'7:40 자습감독',           start:'2026-07-09', end:'2026-07-09', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:9, title:'8:50 자습감독',           start:'2026-07-11', end:'2026-07-11', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:10,title:'청소 방송',               start:'2026-07-11', end:'2026-07-11', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:11,title:'목회자 세미나',           start:'2026-07-13', end:'2026-07-14', bg:'rgba(22,52,100,.9)', fg:'#60A5FA'},
+  {id:12,title:'찬양인도',                start:'2026-07-15', end:'2026-07-16', bg:'rgba(18,62,46,.9)',  fg:'#34D399'},
+  {id:13,title:'제헌절',                  start:'2026-07-17', end:'2026-07-17', bg:'rgba(52,22,96,.9)',  fg:'#A78BFA'},
+  {id:14,title:'청소 방송',               start:'2026-07-18', end:'2026-07-18', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:15,title:'7:40 자습감독',           start:'2026-07-20', end:'2026-07-20', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:16,title:'청소 방송',               start:'2026-07-25', end:'2026-07-25', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:17,title:'여름 예수복제소',         start:'2026-07-26', end:'2026-08-01', bg:'rgba(88,18,18,.9)',  fg:'#F87171'},
+  {id:18,title:'아베카 수업',             start:'2026-07-28', end:'2026-07-28', bg:'rgba(18,48,88,.9)',  fg:'#60A5FA'},
+  {id:19,title:'배식',                    start:'2026-07-29', end:'2026-07-29', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:20,title:'아베카 수업',             start:'2026-07-29', end:'2026-07-29', bg:'rgba(18,48,88,.9)',  fg:'#60A5FA'},
+  {id:21,title:'뒷정리',                  start:'2026-07-31', end:'2026-07-31', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+  {id:22,title:'아베카 수업',             start:'2026-07-31', end:'2026-07-31', bg:'rgba(18,48,88,.9)',  fg:'#60A5FA'},
+  {id:23,title:'속초 한다살',             start:'2026-08-06', end:'2026-08-06', bg:'rgba(105,52,8,.9)',  fg:'#FB923C'},
+];
+
+function parseDate(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+var DAY_MS=86400000;
+
+function buildMonth(){
+  var MONTHS=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  document.getElementById('ac-month-title').textContent=monthYear+'년 '+MONTHS[monthIdx];
+
+  var today=new Date(2026,6,20);
+  var todayStr=isoDate(today);
+
+  // week bounds: Sun→Sat of the view
+  var firstDay=new Date(monthYear,monthIdx,1);
+  var firstSun=new Date(firstDay); firstSun.setDate(firstDay.getDate()-firstDay.getDay());
+  var lastDay=new Date(monthYear,monthIdx+1,0);
+  var lastSat=new Date(lastDay); lastSat.setDate(lastDay.getDate()+(6-lastDay.getDay()));
+
+  // parse events once
+  var evts=AC_EVENTS.map(function(e){
+    return {id:e.id,title:e.title,bg:e.bg,fg:e.fg,
+      sd:parseDate(e.start),ed:parseDate(e.end)};
+  });
+
+  // build weeks array
+  var weeks=[],cur=new Date(firstSun);
+  while(cur<=lastSat){
+    var wk=[];
+    for(var i=0;i<7;i++){wk.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+    weeks.push(wk);
+  }
+
+  // slot allocator per week
+  function allocate(wkStart,wkEnd){
+    var overlap=evts.filter(function(e){return e.sd<=wkEnd&&e.ed>=wkStart;});
+    overlap.sort(function(a,b){return(b.ed-b.sd)-(a.ed-a.sd)||a.sd-b.sd;});
+    var rowSlots=[],placed=[];
+    overlap.forEach(function(ev){
+      var sc=Math.max(0,Math.round((ev.sd-wkStart)/DAY_MS));
+      var ec=Math.min(6,Math.round((ev.ed-wkStart)/DAY_MS));
+      var ri=0;
+      while(true){
+        if(!rowSlots[ri])rowSlots[ri]=[];
+        var ok=!rowSlots[ri].some(function(s){return!(s.ec<sc||s.sc>ec);});
+        if(ok){rowSlots[ri].push({sc:sc,ec:ec});
+          placed.push({ev:ev,sc:sc,ec:ec,row:ri,
+            cl:ev.sd<wkStart,cr:ev.ed>wkEnd});break;}
+        ri++;if(ri>8)break;
+      }
+    });
+    return placed;
+  }
+
+  var cal=document.getElementById('ac-cal');
+  cal.innerHTML='';
+  var MAX_EV_ROWS=3;
+
+  weeks.forEach(function(wk){
+    var wkStart=wk[0],wkEnd=wk[6];
+    var placed=allocate(wkStart,wkEnd);
+    var maxRow=placed.reduce(function(m,p){return Math.max(m,p.row);},-1);
+
+    var wkEl=document.createElement('div');
+    wkEl.className='ac-week';
+
+    // date numbers row
+    var drow=document.createElement('div');
+    drow.className='ac-dates-row';
+    wk.forEach(function(dt,i){
+      var ds=isoDate(dt);
+      var isOther=dt.getMonth()!==monthIdx;
+      var isToday=ds===todayStr;
+      var cell=document.createElement('div');
+      cell.className='ac-date-cell';
+      var num=document.createElement('span');
+      num.className='ac-date-num'+
+        (isToday?' today':'')+
+        (isOther?' other-month':'')+
+        (!isToday&&!isOther&&i===0?' is-sun':'')+
+        (!isToday&&!isOther&&i===6?' is-sat':'');
+      num.textContent=dt.getDate();
+      cell.appendChild(num);
+      cell.addEventListener('click',switchToDaily);
+      drow.appendChild(cell);
+    });
+    wkEl.appendChild(drow);
+
+    // event pill rows
+    for(var ri=0;ri<Math.min(maxRow+1,MAX_EV_ROWS);ri++){
+      var erow=document.createElement('div');
+      erow.className='ac-event-row';
+      var rp=placed.filter(function(p){return p.row===ri;})
+                   .sort(function(a,b){return a.sc-b.sc;});
+      var col=0;
+      rp.forEach(function(p){
+        if(p.sc>col){
+          var gap=document.createElement('div');
+          gap.style.gridColumn=(col+1)+'/'+(p.sc+1);
+          erow.appendChild(gap);
+        }
+        var pill=document.createElement('div');
+        var clsCont=(p.cl&&p.cr)?'clr':p.cl?'cl':p.cr?'cr':'';
+        pill.className='ac-event-pill'+(clsCont?' '+clsCont:'');
+        pill.style.cssText='grid-column:'+(p.sc+1)+'/span '+(p.ec-p.sc+1)+';background:'+p.ev.bg+';color:'+p.ev.fg;
+        if(!p.cl){
+          var dot=document.createElement('span');
+          dot.className='ac-event-dot';
+          dot.style.background=p.ev.fg;
+          pill.appendChild(dot);
+          var txt=document.createElement('span');
+          txt.textContent=p.ev.title;
+          pill.appendChild(txt);
+        }
+        erow.appendChild(pill);
+        col=p.ec+1;
+      });
+      if(col<7){var tail=document.createElement('div');tail.style.gridColumn=(col+1)+'/8';erow.appendChild(tail);}
+      wkEl.appendChild(erow);
+    }
+
+    // "+N more" row if needed
+    if(maxRow>=MAX_EV_ROWS){
+      var mrow=document.createElement('div');
+      mrow.className='ac-event-row';
+      var hidden=Array(7).fill(0);
+      placed.filter(function(p){return p.row>=MAX_EV_ROWS;}).forEach(function(p){
+        for(var c=p.sc;c<=p.ec;c++)hidden[c]++;
+      });
+      for(var c=0;c<7;c++){
+        var m=document.createElement('div');
+        m.style.gridColumn=(c+1)+'/span 1';
+        if(hidden[c]>0){m.className='ac-more';m.textContent='+'+hidden[c];}
+        mrow.appendChild(m);
+      }
+      wkEl.appendChild(mrow);
+    }
+
+    cal.appendChild(wkEl);
+  });
+}
+
+buildMonth();
+document.getElementById('month-prev').addEventListener('click',function(){monthIdx--;if(monthIdx<0){monthIdx=11;monthYear--;}buildMonth();});
+document.getElementById('month-next').addEventListener('click',function(){monthIdx++;if(monthIdx>11){monthIdx=0;monthYear++;}buildMonth();});
+
+/* ════════════════════════════════════
+   BINDER sub-tabs
+════════════════════════════════════ */
+document.querySelectorAll('.binder-tab[data-bview]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.binder-tab').forEach(function(b){b.classList.remove('on');});
+    document.querySelectorAll('.binder-view').forEach(function(v){v.classList.remove('on');});
+    btn.classList.add('on');
+    var el=document.getElementById('bview-'+btn.getAttribute('data-bview'));
+    if(el) el.classList.add('on');
+  });
+});
+
+/* ════════════════════════════════════
+   BINDER DRAWER
+════════════════════════════════════ */
+function openDrawer(title,date,type){
+  document.getElementById('bd-title').textContent=title;
+  document.getElementById('bd-date').textContent=date;
+  document.getElementById('binder-drawer').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('binder-drawer').classList.remove('open');
+}
+function cloneToInbox(){
+  closeDrawer();
+  // Switch to home daily + add template tasks
+  document.querySelectorAll('.gnb-btn').forEach(function(b){b.classList.remove('on');});
+  document.querySelector('.gnb-btn[data-view="home"]').classList.add('on');
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  document.getElementById('view-home').classList.add('active');
+  switchToDaily();
+
+  var col=document.getElementById('task-col');
+  var inboxRow=col.querySelector('.inbox-row');
+  var templates=['[복제] CAMP 대진표 짜기','[복제] 숏폼 훅 작성','[복제] 식재료 체크'];
+  templates.forEach(function(t){
+    var item=document.createElement('div');
+    item.className='task-item';
+    item.setAttribute('onclick','toggleTask(this)');
+    item.innerHTML='<div class="task-cb"><i class="fa-solid fa-check task-cb-check"></i></div><span class="task-name">'+t+'</span>';
+    col.insertBefore(item,inboxRow);
+    setTimeout(function(i){ return function(){ var el=col.querySelectorAll('.task-item')[i]; el.style.boxShadow='0 0 14px rgba(168,85,247,.5)'; setTimeout(function(){el.style.boxShadow='';},700); }; }(col.querySelectorAll('.task-item').length-1), 100);
+  });
+
+  var cat=document.createElement('div');
+  cat.className='task-cat-label';
+  cat.innerHTML='<span style="color:rgba(168,85,247,.7)">● 복제됨</span>';
+  var firstNew=col.querySelectorAll('.task-item')[col.querySelectorAll('.task-item').length-templates.length];
+  col.insertBefore(cat,firstNew);
+  updateDoneCount();
+}
+
+document.addEventListener('keydown',function(e){if(e.key==='Escape') closeDrawer();});
+</script>
+</body>
+</html>
