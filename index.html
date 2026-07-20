@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Pretendard','Apple SD Gothic Neo','Noto Sans KR','sans-serif']}}}}</script>
   <style>
   :root{
@@ -1459,6 +1460,180 @@ function cloneToInbox(){
 }
 
 document.addEventListener('keydown',function(e){if(e.key==='Escape') closeDrawer();});
+
+/* ════════════════════════════════════
+   SUPABASE 연동
+════════════════════════════════════ */
+var SUPA_URL='https://tlvfyhtcowzvcjxnavzv.supabase.co';
+var SUPA_KEY='sb_publishable_cmT1Bh7YVfsTnK8V6uyU4Q_Gqgxoceb';
+var supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+var TODAY_DATE=new Date().toISOString().slice(0,10);
+
+function debounce(fn,ms){var t;return function(){var a=arguments,c=this;clearTimeout(t);t=setTimeout(function(){fn.apply(c,a);},ms);};}
+
+/* ── daily_logs ── */
+async function saveDailyLog(data){
+  await supa.from('daily_logs')
+    .upsert(Object.assign({log_date:TODAY_DATE},data),{onConflict:'log_date'});
+}
+async function loadDailyLog(){
+  var r=await supa.from('daily_logs').select('*').eq('log_date',TODAY_DATE).maybeSingle();
+  if(!r.data) return;
+  var d=r.data;
+  var af=document.querySelector('.affirmation-text');
+  if(af&&d.affirmation!=null) af.value=d.affirmation;
+  var bg=document.querySelector('.bgm-input');
+  if(bg&&d.bgm!=null) bg.value=d.bgm;
+  var rv=document.querySelector('.review-text');
+  if(rv&&d.review!=null) rv.value=d.review;
+}
+
+/* ── tasks ── */
+var CAT_COLORS={'캠프 기획':'rgba(251,191,36,.7)','영상 제작':'rgba(0,212,255,.7)','콘텐츠':'rgba(168,85,247,.7)','행사 준비':'rgba(34,197,94,.7)','인박스':'rgba(168,85,247,.7)'};
+
+async function dbAddTask(name,category){
+  var order=document.querySelectorAll('#task-col .task-item').length;
+  var r=await supa.from('tasks')
+    .insert({log_date:TODAY_DATE,category:category||'인박스',name:name,done:false,sort_order:order})
+    .select().maybeSingle();
+  return r.data;
+}
+async function dbToggleTask(id,done){
+  await supa.from('tasks').update({done:done}).eq('id',id);
+}
+
+function makeTaskEl(t){
+  var item=document.createElement('div');
+  item.className='task-item'+(t.done?' done':'');
+  item.setAttribute('data-task-id',t.id);
+  item.innerHTML='<div class="task-cb"><i class="fa-solid fa-check task-cb-check"></i></div><span class="task-name">'+t.name+'</span>';
+  item.addEventListener('click',function(){
+    item.classList.toggle('done');
+    dbToggleTask(t.id,item.classList.contains('done'));
+    updateDoneCount();
+  });
+  return item;
+}
+
+function renderTasksFromDB(rows){
+  var col=document.getElementById('task-col');
+  var inboxRow=col.querySelector('.inbox-row');
+  Array.from(col.children).forEach(function(el){
+    if(!el.classList.contains('inbox-row')) el.remove();
+  });
+  var lastCat=null;
+  rows.forEach(function(t){
+    if(t.category!==lastCat){
+      var catEl=document.createElement('div');
+      catEl.className='task-cat-label';
+      var c=CAT_COLORS[t.category]||'rgba(255,255,255,.4)';
+      catEl.innerHTML='<span style="color:'+c+'">● '+t.category+'</span>';
+      col.insertBefore(catEl,inboxRow);
+      lastCat=t.category;
+    }
+    col.insertBefore(makeTaskEl(t),inboxRow);
+  });
+  updateDoneCount();
+}
+
+async function saveSampleTasksToDB(){
+  var col=document.getElementById('task-col');
+  var rows=[],order=0,lastCat='기타';
+  Array.from(col.children).forEach(function(el){
+    if(el.classList.contains('task-cat-label'))
+      lastCat=el.querySelector('span').textContent.replace(/●\s*/,'').trim();
+    else if(el.classList.contains('task-item'))
+      rows.push({log_date:TODAY_DATE,category:lastCat,
+        name:el.querySelector('.task-name').textContent.trim(),
+        done:el.classList.contains('done'),sort_order:order++});
+  });
+  var r=await supa.from('tasks').insert(rows).select();
+  if(r.data) renderTasksFromDB(r.data);
+}
+
+async function loadTasks(){
+  var r=await supa.from('tasks').select('*').eq('log_date',TODAY_DATE).order('sort_order');
+  if(r.data&&r.data.length>0) renderTasksFromDB(r.data);
+  else await saveSampleTasksToDB();
+}
+
+/* ── weekly_goals ── */
+var WEEK_START=(function(){var d=new Date();d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10);})();
+async function saveWeeklyGoal(data){
+  await supa.from('weekly_goals')
+    .upsert(Object.assign({week_start:WEEK_START},data),{onConflict:'week_start'});
+}
+async function loadWeeklyGoal(){
+  var r=await supa.from('weekly_goals').select('*').eq('week_start',WEEK_START).maybeSingle();
+  if(!r.data) return;
+  var inp=document.getElementById('week-goal-input');
+  if(inp&&r.data.goal!=null) inp.value=r.data.goal;
+  if(r.data.star_rating){
+    document.querySelectorAll('.week-star').forEach(function(el){
+      el.classList.toggle('on',parseInt(el.getAttribute('data-s'))<=r.data.star_rating);
+    });
+  }
+}
+
+/* ── 입력 이벤트 연결 ── */
+// 다짐
+var afEl=document.querySelector('.affirmation-text');
+if(afEl) afEl.addEventListener('input',debounce(function(){saveDailyLog({affirmation:this.value});},1000));
+// BGM
+var bgEl=document.querySelector('.bgm-input');
+if(bgEl) bgEl.addEventListener('input',debounce(function(){saveDailyLog({bgm:this.value});},1000));
+// 오늘의 리뷰
+var rvEl=document.querySelector('.review-text');
+if(rvEl) rvEl.addEventListener('input',debounce(function(){saveDailyLog({review:this.value});},1000));
+// 주간 목표
+var wgEl=document.getElementById('week-goal-input');
+if(wgEl) wgEl.addEventListener('input',debounce(function(){saveWeeklyGoal({goal:this.value});},1000));
+// 별점 — 기존 핸들러에 DB 저장 추가
+document.getElementById('week-stars').addEventListener('click',function(e){
+  var s=e.target.closest('.week-star');
+  if(!s) return;
+  var rating=parseInt(s.getAttribute('data-s'));
+  document.querySelectorAll('.week-star').forEach(function(el){
+    el.classList.toggle('on',parseInt(el.getAttribute('data-s'))<=rating);
+  });
+  saveWeeklyGoal({star_rating:rating});
+});
+
+// 인박스 Enter → DB 저장 (기존 핸들러 교체)
+(function(){
+  var old=document.getElementById('inbox-in');
+  var neu=old.cloneNode(true);
+  old.parentNode.replaceChild(neu,old);
+  neu.addEventListener('keydown',async function(e){
+    if(e.key!=='Enter') return;
+    var val=this.value.trim();
+    if(!val) return;
+    e.preventDefault();
+    var saved=await dbAddTask(val,'인박스');
+    var col=document.getElementById('task-col');
+    var inboxRow=col.querySelector('.inbox-row');
+    var prev=inboxRow.previousElementSibling;
+    if(!prev||!prev.classList.contains('task-cat-label')||!prev.textContent.includes('인박스')){
+      var catEl=document.createElement('div');
+      catEl.className='task-cat-label';
+      catEl.innerHTML='<span style="color:rgba(168,85,247,.7)">● 인박스</span>';
+      col.insertBefore(catEl,inboxRow);
+    }
+    var t=saved||{id:null,name:val,done:false};
+    var item=makeTaskEl(t);
+    col.insertBefore(item,inboxRow);
+    this.value='';
+    updateDoneCount();
+    item.style.boxShadow='0 0 14px rgba(168,85,247,.4)';
+    setTimeout(function(){item.style.boxShadow='';},600);
+  });
+})();
+
+/* ── 초기 데이터 로드 ── */
+(async function(){
+  await Promise.all([loadDailyLog(),loadTasks(),loadWeeklyGoal()]);
+  console.log('[바인더] Supabase 연동 완료');
+})();
 </script>
 </body>
 </html>
