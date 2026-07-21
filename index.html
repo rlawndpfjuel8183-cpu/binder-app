@@ -256,6 +256,15 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 /* ══════════════════════════════════════════
    HOME VIEW
 ══════════════════════════════════════════ */
+.mit-wrap{border-radius:var(--radius);border:2px solid var(--indigo);background:var(--indigo-light);padding:14px 16px;position:relative;}
+.mit-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--indigo);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.mit-input-row{display:flex;align-items:center;gap:8px;}
+.mit-input{flex:1;border:none;background:transparent;font-size:15px;font-weight:700;color:var(--text);outline:none;font-family:inherit;padding:0;}
+.mit-input::placeholder{color:var(--muted);font-weight:400;}
+.mit-done-btn{width:26px;height:26px;border-radius:50%;border:2px solid var(--indigo);background:transparent;color:var(--indigo);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:background .15s,color .15s;}
+.mit-done-btn:hover,.mit-done-btn.done{background:var(--indigo);color:#fff;}
+.mit-done-btn.done{border-color:var(--indigo);}
+.mit-done-text{text-decoration:line-through;opacity:.5;}
 .avail-card{
   border-radius:var(--radius);padding:18px;margin-bottom:16px;
   background:linear-gradient(135deg,#5B52E8 0%,#7B74F8 100%);
@@ -717,6 +726,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </button>
     </div>
     <div class="view-body">
+      <!-- MIT: Most Important Task -->
+      <div id="mit-card" style="margin-bottom:16px;"></div>
+
       <!-- 가용 시간 카드 -->
       <div class="avail-card" id="avail-card">
         <div class="avail-label">오늘의 가용 시간</div>
@@ -1435,6 +1447,39 @@ document.querySelectorAll('.sb-item').forEach(function(b){
 /* ══════════════════════════════════════════
    HOME VIEW
 ══════════════════════════════════════════ */
+function getMIT(){
+  var key='mit_'+TODAY;
+  try{ return JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){ return {}; }
+}
+function saveMIT(obj){
+  localStorage.setItem('mit_'+TODAY, JSON.stringify(obj));
+}
+function renderMIT(){
+  var mit=getMIT();
+  var el=document.getElementById('mit-card');
+  var isDone=!!mit.done;
+  el.innerHTML='<div class="mit-wrap">'
+    +'<div class="mit-label"><i class="fa-solid fa-star"></i> 오늘 반드시 할 1가지</div>'
+    +'<div class="mit-input-row">'
+    +'<button class="mit-done-btn'+(isDone?' done':'')+'" onclick="toggleMIT()" title="완료">'
+    +'<i class="fa-solid fa-check"></i></button>'
+    +'<input class="mit-input'+(isDone?' mit-done-text':'')+'" id="mit-text" type="text" maxlength="80"'
+    +' placeholder="오늘 가장 중요한 한 가지를 입력하세요…"'
+    +' value="'+escHtml(mit.text||'')+'"'
+    +' oninput="onMITInput(this.value)"'
+    +' onkeydown="if(event.key===\'Enter\')this.blur()"/>'
+    +'</div>'
+    +'</div>';
+}
+function onMITInput(val){
+  var mit=getMIT(); mit.text=val; saveMIT(mit);
+}
+function toggleMIT(){
+  var mit=getMIT(); mit.done=!mit.done; saveMIT(mit); renderMIT();
+  // 완료시 잠깐 포커스 해제
+  if(mit.done){ var inp=document.getElementById('mit-text'); if(inp) inp.blur(); }
+}
+
 function renderHome(){
   // 날짜
   var d=new Date();
@@ -1443,6 +1488,8 @@ function renderHome(){
     d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')';
   document.getElementById('home-date-sub').textContent=
     '오늘도 잘 해봅시다!';
+
+  renderMIT();
 
   // 가용 시간
   var av=calcAvailable(TODAY);
