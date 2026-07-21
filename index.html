@@ -1541,7 +1541,7 @@ function renderGoalList(){
       +'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
       +'<div class="goal-card-title">'+escHtml(cat.title)+'</div>'
       +'<div class="goal-card-badges">'
-      +'<span class="badge badge-gray">'+cat.type_label||'대분류'+'</span>'
+      +'<span class="badge badge-gray">'+(cat.type_label||'대분류')+'</span>'
       +(cat.status==='done'?'<span class="badge badge-green">완료</span>':cat.status==='active'?'<span class="badge badge-indigo">진행중</span>':'')
       +'</div></div>'
       +(prog!==null?'<div style="display:flex;align-items:center;gap:8px;"><div class="prog-bar" style="flex:1;"><div class="prog-fill" style="width:'+prog+'%;background:'+color+'"></div></div><span style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;">'+prog+'%</span></div>':'')
