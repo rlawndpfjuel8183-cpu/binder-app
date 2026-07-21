@@ -971,8 +971,22 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <div style="margin-bottom:16px;">
         <div class="section-header"><span class="section-title">📊 이번 주 시간 사용</span></div>
         <div class="card" style="padding:16px;">
-          <svg id="week-chart" width="100%" height="120" viewBox="0 0 300 120"></svg>
+          <svg id="week-chart" width="100%" height="140" viewBox="0 0 300 140"></svg>
+          <div style="display:flex;gap:14px;margin-top:6px;justify-content:center;">
+            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);">
+              <div style="width:10px;height:10px;border-radius:3px;background:#A5A0F0;"></div> 계획
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);">
+              <div style="width:10px;height:10px;border-radius:3px;background:#5B52E8;"></div> 실제
+            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- 계획 vs 실제 비교 -->
+      <div style="margin-bottom:16px;">
+        <div class="section-header"><span class="section-title">⚖️ 계획 vs 실제 (오늘)</span></div>
+        <div id="plan-vs-actual"></div>
       </div>
 
       <!-- AI 리포트 -->
@@ -2155,6 +2169,7 @@ function renderAnalytics(){
 
   // 주간 차트 (SVG bar)
   renderWeekChart();
+  renderPlanVsActual();
 }
 
 function renderWeekChart(){
@@ -2166,39 +2181,81 @@ function renderWeekChart(){
     var ds=d.toISOString().slice(0,10);
     var plans=getPlans(ds);
     var tracks=getTracks(ds);
-    var mins=tracks.reduce(function(a,t){ return a+timeToMin(t.end_time)-timeToMin(t.start_time); },0)
-              +plans.reduce(function(a,p){ return a+timeToMin(p.end_time)-timeToMin(p.start_time); },0);
-    data.push({label:days[d.getDay()],mins:mins,isToday:ds===TODAY});
+    var planMins=plans.reduce(function(a,p){ return a+timeToMin(p.end_time)-timeToMin(p.start_time); },0);
+    var actualMins=tracks.reduce(function(a,t){ return a+timeToMin(t.end_time)-timeToMin(t.start_time); },0);
+    data.push({label:days[d.getDay()],planMins:planMins,actualMins:actualMins,isToday:ds===TODAY});
   }
-  var maxVal=Math.max.apply(null,data.map(function(d){ return d.mins; }))||240;
-  var W=300,H=108,barW=26,gap=(W-7*barW)/8;
-  var CHART_H=H-22; // 레이블 공간 제외
+  var maxVal=Math.max.apply(null,data.map(function(d){ return Math.max(d.planMins,d.actualMins); }))||240;
+  var W=300,H=128,bw=11,bGap=2,groupW=bw*2+bGap,groupGap=(W-7*groupW)/8;
+  var CHART_H=H-22;
   var html='';
-  // 수평 가이드라인
-  [0.5,1].forEach(function(r){
+  [0.25,0.5,0.75,1].forEach(function(r){
     var y=CHART_H*(1-r);
-    html+='<line x1="0" y1="'+y+'" x2="'+W+'" y2="'+y+'" stroke="rgba(0,0,0,.06)" stroke-width="1"/>';
+    html+='<line x1="0" y1="'+y+'" x2="'+W+'" y2="'+y+'" stroke="rgba(0,0,0,.05)" stroke-width="1"/>';
   });
   data.forEach(function(d,i){
-    var x=gap+(barW+gap)*i;
-    var trackH=CHART_H;
+    var gx=groupGap+(groupW+groupGap)*i;
+    var px=gx, ax=gx+bw+bGap;
+    var planCol=d.isToday?'#8B85F0':'#C4C0F8';
+    var actCol=d.isToday?'#5B52E8':'#7B74F8';
     // 배경 트랙
-    html+='<rect x="'+x+'" y="0" width="'+barW+'" height="'+trackH+'" rx="6" fill="rgba(0,0,0,.04)"/>';
+    html+='<rect x="'+px+'" y="0" width="'+bw+'" height="'+CHART_H+'" rx="3" fill="rgba(0,0,0,.04)"/>';
+    html+='<rect x="'+ax+'" y="0" width="'+bw+'" height="'+CHART_H+'" rx="3" fill="rgba(0,0,0,.04)"/>';
+    // 계획 바
+    if(d.planMins>0){
+      var ph=Math.max(d.planMins/maxVal*CHART_H,4);
+      html+='<rect x="'+px+'" y="'+(CHART_H-ph)+'" width="'+bw+'" height="'+ph+'" rx="3" fill="'+planCol+'"/>';
+    }
     // 실제 바
-    var bh=d.mins>0?Math.max(d.mins/maxVal*trackH,6):0;
-    var by=trackH-bh;
-    var col=d.isToday?'#5B52E8':'#A5A0F0';
-    if(bh>0) html+='<rect x="'+x+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="6" fill="'+col+'"/>';
-    // 시간 레이블 (바 위)
-    if(d.mins>0){
-      var h=Math.floor(d.mins/60), m=d.mins%60;
-      var label=h>0?(h+'h'+(m>0?m+'m':'')):(m+'m');
-      html+='<text x="'+(x+barW/2)+'" y="'+(by-3)+'" text-anchor="middle" font-size="8" fill="'+col+'" font-family="inherit" font-weight="700">'+label+'</text>';
+    if(d.actualMins>0){
+      var ah=Math.max(d.actualMins/maxVal*CHART_H,4);
+      html+='<rect x="'+ax+'" y="'+(CHART_H-ah)+'" width="'+bw+'" height="'+ah+'" rx="3" fill="'+actCol+'"/>';
     }
     // 요일 레이블
-    html+='<text x="'+(x+barW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="'+(d.isToday?'#5B52E8':'#aaa')+'" font-family="inherit" font-weight="'+(d.isToday?700:500)+'">'+d.label+'</text>';
+    var lx=gx+groupW/2;
+    html+='<text x="'+lx+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="'+(d.isToday?'#5B52E8':'#aaa')+'" font-family="inherit" font-weight="'+(d.isToday?700:500)+'">'+d.label+'</text>';
   });
   svg.innerHTML=html;
+}
+
+function renderPlanVsActual(){
+  var el=document.getElementById('plan-vs-actual');
+  if(!el) return;
+  var plans=getPlans(TODAY);
+  var tracks=getTracks(TODAY);
+  var planMins=plans.reduce(function(a,p){ return a+timeToMin(p.end_time)-timeToMin(p.start_time); },0);
+  var actualMins=tracks.reduce(function(a,t){ return a+timeToMin(t.end_time)-timeToMin(t.start_time); },0);
+  var maxMins=Math.max(planMins,actualMins,60);
+  var diff=actualMins-planMins;
+  var diffText=diff===0?'계획과 일치':
+    diff>0?'<span style="color:var(--green)">+'+minToHM(diff)+' 초과 달성</span>':
+           '<span style="color:var(--rose)">'+minToHM(-diff)+' 미달</span>';
+  if(planMins===0&&actualMins===0){
+    el.innerHTML='<div class="card" style="padding:16px;text-align:center;color:var(--muted);font-size:13px;">오늘 계획 또는 기록이 없습니다.</div>';
+    return;
+  }
+  function bar(mins,col,bg){
+    var pct=Math.min(Math.round(mins/maxMins*100),100);
+    return '<div style="flex:1;">'
+      +'<div style="height:8px;background:'+bg+';border-radius:99px;overflow:hidden;">'
+      +'<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:99px;transition:width .4s;"></div>'
+      +'</div></div>';
+  }
+  el.innerHTML='<div class="card" style="padding:16px;">'
+    +'<div style="display:flex;flex-direction:column;gap:12px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;">'
+    +'<div style="width:36px;font-size:11px;color:var(--muted);font-weight:600;">계획</div>'
+    +bar(planMins,'#A5A0F0','rgba(165,160,240,.15)')
+    +'<div style="width:42px;text-align:right;font-size:12px;font-weight:700;color:#8B85F0;">'+minToHM(planMins)+'</div>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;">'
+    +'<div style="width:36px;font-size:11px;color:var(--muted);font-weight:600;">실제</div>'
+    +bar(actualMins,'#5B52E8','rgba(91,82,232,.1)')
+    +'<div style="width:42px;text-align:right;font-size:12px;font-weight:700;color:#5B52E8;">'+minToHM(actualMins)+'</div>'
+    +'</div>'
+    +'</div>'
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--bdr);font-size:12px;color:var(--muted);">오늘의 갭: '+diffText+'</div>'
+    +'</div>';
 }
 
 /* ── UTIL ── */
