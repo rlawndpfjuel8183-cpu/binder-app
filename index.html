@@ -914,6 +914,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <div>
         <label class="lbl">제목</label>
         <input type="text" class="inp" id="goal-edit-title" placeholder="골 제목 입력"/>
+        <p id="goal-title-hint" style="font-size:11px;color:var(--muted2);margin-top:5px;line-height:1.5;"></p>
       </div>
       <!-- 타입 -->
       <div id="goal-type-row">
@@ -1791,6 +1792,29 @@ function openGoalEdit(id, isTop){
   openDrawer();
 }
 
+var GOAL_TYPE_HINTS={
+  category:{
+    placeholder:'예) 커리어, 건강, 사이드 프로젝트, 재정',
+    hint:'가장 큰 삶의 영역이에요. 3~5개가 적당합니다.'
+  },
+  sub:{
+    placeholder:'예) 유튜브 채널 운영, 체력 관리, 영어 공부',
+    hint:'대분류 안의 구체적인 방향이에요.'
+  },
+  project:{
+    placeholder:'예) 여름 캠프 영상 제작, 포트폴리오 사이트 리뉴얼',
+    hint:'마감일과 단계를 가진 구체적인 프로젝트예요.'
+  },
+  short_job:{
+    placeholder:'예) 기획안 초안 작성, 레퍼런스 수집 10개',
+    hint:'한 번에 끝낼 수 있는 단발성 할 일이에요.'
+  },
+  recurring_job:{
+    placeholder:'예) 주간 리뷰, 청소 당번, 매일 운동 30분',
+    hint:'주기적으로 반복되는 정기 루틴이에요.'
+  }
+};
+
 function updateGoalTypeUI(){
   var t=document.getElementById('goal-edit-type').value||_editGoalType;
   document.getElementById('goal-deadline-row').style.display=(t==='category')?'none':'';
@@ -1798,6 +1822,10 @@ function updateGoalTypeUI(){
   document.getElementById('goal-recur-row').style.display=(t==='recurring_job')?'':'none';
   document.getElementById('goal-add-child-row').style.display=(_editGoalId&&t!=='short_job'&&t!=='recurring_job')?'':'none';
   if(t==='project') renderStagesList();
+  // placeholder + hint 업데이트
+  var h=GOAL_TYPE_HINTS[t]||{};
+  document.getElementById('goal-edit-title').placeholder=h.placeholder||'골 제목 입력';
+  document.getElementById('goal-title-hint').textContent=h.hint||'';
 }
 document.getElementById('goal-edit-type').addEventListener('change', updateGoalTypeUI);
 
