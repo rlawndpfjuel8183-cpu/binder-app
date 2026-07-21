@@ -1246,11 +1246,11 @@ function upsertGoal(g){
   var arr=getGoals(), idx=arr.findIndex(function(x){ return x.id===g.id; });
   if(idx>=0) arr[idx]=g; else arr.push(g);
   saveGoals(arr);
-  supa.from('goals').upsert(g).catch(function(){});
+  Promise.resolve(supa.from('goals').upsert(g)).catch(function(){});
 }
 function deleteGoal(id){
   saveGoals(getGoals().filter(function(g){ return g.id!==id && g.parent_id!==id; }));
-  supa.from('goals').delete().eq('id',id).catch(function(){});
+  Promise.resolve(supa.from('goals').delete().eq('id',id)).catch(function(){});
 }
 
 function getAllPlans(){ try{ return JSON.parse(localStorage.getItem('b2_plans')||'[]'); }catch(e){ return []; } }
@@ -1259,11 +1259,11 @@ function upsertPlan(p){
   var arr=getAllPlans(), idx=arr.findIndex(function(x){ return x.id===p.id; });
   if(idx>=0) arr[idx]=p; else arr.push(p);
   localStorage.setItem('b2_plans', JSON.stringify(arr));
-  supa.from('timeline_plans').upsert(p).catch(function(){});
+  Promise.resolve(supa.from('timeline_plans').upsert(p)).catch(function(){});
 }
 function deletePlan(id){
   localStorage.setItem('b2_plans', JSON.stringify(getAllPlans().filter(function(p){ return p.id!==id; })));
-  supa.from('timeline_plans').delete().eq('id',id).catch(function(){});
+  Promise.resolve(supa.from('timeline_plans').delete().eq('id',id)).catch(function(){});
 }
 
 function getAllTracks(){ try{ return JSON.parse(localStorage.getItem('b2_tracks')||'[]'); }catch(e){ return []; } }
@@ -1272,7 +1272,7 @@ function upsertTrack(t){
   var arr=getAllTracks(), idx=arr.findIndex(function(x){ return x.id===t.id; });
   if(idx>=0) arr[idx]=t; else arr.push(t);
   localStorage.setItem('b2_tracks', JSON.stringify(arr));
-  supa.from('timeline_tracks').upsert(t).catch(function(){});
+  Promise.resolve(supa.from('timeline_tracks').upsert(t)).catch(function(){});
 }
 function deleteTrack(id){
   localStorage.setItem('b2_tracks', JSON.stringify(getAllTracks().filter(function(t){ return t.id!==id; })));
@@ -1283,11 +1283,11 @@ function upsertFixed(f){
   var arr=getFixed(), idx=arr.findIndex(function(x){ return x.id===f.id; });
   if(idx>=0) arr[idx]=f; else arr.push(f);
   localStorage.setItem('b2_fixed', JSON.stringify(arr));
-  supa.from('fixed_schedules').upsert(f).catch(function(){});
+  Promise.resolve(supa.from('fixed_schedules').upsert(f)).catch(function(){});
 }
 function deleteFixed(id){
   localStorage.setItem('b2_fixed', JSON.stringify(getFixed().filter(function(f){ return f.id!==id; })));
-  supa.from('fixed_schedules').delete().eq('id',id).catch(function(){});
+  Promise.resolve(supa.from('fixed_schedules').delete().eq('id',id)).catch(function(){});
 }
 
 function getFixedForDate(dateStr){
