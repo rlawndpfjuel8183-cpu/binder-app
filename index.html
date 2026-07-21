@@ -807,7 +807,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div class="tl-panel">
           <div class="tl-panel-head">
             <span class="tl-col-label">GOALS</span>
-            <span style="font-size:10px;color:var(--muted2);">드래그 → 시간표에 배치</span>
+            <button class="btn btn-primary btn-sm" onclick="openGoalAdd(null,'short_job')">
+              <i class="fa-solid fa-plus"></i> 골 추가
+            </button>
           </div>
           <div id="tl-goal-palette" class="tl-goal-palette"></div>
         </div>
@@ -2132,6 +2134,7 @@ function saveGoal(){
   showToast(_editGoalId?'수정됐습니다!':'추가됐습니다!');
   renderGoals();
   renderHome();
+  if(document.querySelector('#view-timeline.active')) renderTimeline();
 }
 
 function deleteCurrentGoal(){
