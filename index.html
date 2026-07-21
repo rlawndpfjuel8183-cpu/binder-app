@@ -304,7 +304,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
   background:var(--s1);color:var(--muted);cursor:pointer;transition:all .18s;
   display:flex;align-items:center;gap:6px;
 }
-.cat-chip.on{color:#fff;border-color:transparent;}
+.cat-chip.on{color:#fff;border-color:transparent;background:var(--indigo);}
 .cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 
 .goal-card{
@@ -374,7 +374,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
   padding:9px 12px;border-bottom:1px solid var(--bdr);
   background:var(--s1);flex-shrink:0;
 }
-.tl-col-label{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.tl-col-label{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text);opacity:.5;}
 
 .tl-scroll-wrap{flex:1;overflow-y:auto;position:relative;}
 .tl-time-grid{position:relative;}
@@ -778,8 +778,8 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
   <section id="view-goal" class="view">
     <div class="topbar">
       <div class="topbar-title">골</div>
-      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openGoalAdd(null,'category')">
-        <i class="fa-solid fa-plus"></i> 대분류 추가
+      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openGoalAdd(null,'short_job')">
+        <i class="fa-solid fa-plus"></i> 골 추가
       </button>
     </div>
     <div class="view-body">
@@ -882,9 +882,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <!-- 데일리 -->
       <div id="cal-daily-panel" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
         <div class="cal-month-nav">
-          <button class="btn btn-ghost btn-sm" onclick="calNavDay(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button class="tl-nav-btn" onclick="calNavDay(-1)"><i class="fa-solid fa-chevron-left"></i></button>
           <div class="cal-month-title" id="cal-daily-title"></div>
-          <button class="btn btn-ghost btn-sm" onclick="calNavDay(1)"><i class="fa-solid fa-chevron-right"></i></button>
+          <button class="tl-nav-btn" onclick="calNavDay(1)"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div id="cal-daily-body" style="flex:1;overflow-y:auto;padding:14px;"></div>
       </div>
@@ -892,9 +892,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <!-- 위클리 -->
       <div id="cal-weekly-panel" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
         <div class="cal-month-nav">
-          <button class="btn btn-ghost btn-sm" onclick="calNavWeek(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button class="tl-nav-btn" onclick="calNavWeek(-1)"><i class="fa-solid fa-chevron-left"></i></button>
           <div class="cal-month-title" id="cal-weekly-title"></div>
-          <button class="btn btn-ghost btn-sm" onclick="calNavWeek(1)"><i class="fa-solid fa-chevron-right"></i></button>
+          <button class="tl-nav-btn" onclick="calNavWeek(1)"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div id="cal-weekly-body" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>
       </div>
@@ -902,9 +902,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <!-- 먼슬리 -->
       <div id="cal-month-panel" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
         <div class="cal-month-nav">
-          <button class="btn btn-ghost btn-sm" onclick="calNavMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button class="tl-nav-btn" onclick="calNavMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
           <div class="cal-month-title" id="cal-month-title"></div>
-          <button class="btn btn-ghost btn-sm" onclick="calNavMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+          <button class="tl-nav-btn" onclick="calNavMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div class="ac-dow-row">
           <div class="ac-dow sun">일</div><div class="ac-dow">월</div><div class="ac-dow">화</div>
@@ -1550,7 +1550,7 @@ function renderGoalList(){
 
   var filteredCats=activeCatFilter==='all'?cats:cats.filter(function(c){ return c.id===activeCatFilter; });
   if(filteredCats.length===0){
-    el.innerHTML='<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>골이 없습니다.<br/>상단의 "대분류 추가" 버튼으로 시작하세요!</p></div>';
+    el.innerHTML='<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>골이 없습니다.<br/>상단의 "골 추가" 버튼으로 시작하세요!</p></div>';
     return;
   }
 
@@ -1879,7 +1879,7 @@ function renderCalDaily(){
 
   var body=document.getElementById('cal-daily-body');
   if(allItems.length===0){
-    body.innerHTML='<div class="daily-empty"><i class="fa-regular fa-calendar" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px;"></i>이 날의 일정이 없습니다.<br><span style="font-size:12px;margin-top:6px;display:inline-block;">타임라인에서 플랜을 추가해보세요.</span></div>';
+    body.innerHTML='<div class="daily-empty"><i class="fa-regular fa-calendar" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px;"></i>이 날의 일정이 없습니다.<br><span style="font-size:12px;margin-top:6px;display:inline-block;margin-bottom:14px;">타임라인에서 플랜을 드래그해 배치하세요.</span><br><button class="btn btn-primary btn-sm" onclick="tlDate=\''+ds+'\';switchView(\'timeline\')">타임라인으로 이동 →</button></div>';
     return;
   }
   body.innerHTML=allItems.map(function(item){
@@ -2115,21 +2115,39 @@ function renderWeekChart(){
   for(var i=6;i>=0;i--){
     var d=new Date(); d.setDate(d.getDate()-i);
     var ds=d.toISOString().slice(0,10);
+    var plans=getPlans(ds);
     var tracks=getTracks(ds);
-    var mins=tracks.reduce(function(a,t){ return a+timeToMin(t.end_time)-timeToMin(t.start_time); },0);
+    var mins=tracks.reduce(function(a,t){ return a+timeToMin(t.end_time)-timeToMin(t.start_time); },0)
+              +plans.reduce(function(a,p){ return a+timeToMin(p.end_time)-timeToMin(p.start_time); },0);
     data.push({label:days[d.getDay()],mins:mins,isToday:ds===TODAY});
   }
-  var maxVal=Math.max.apply(null,data.map(function(d){ return d.mins; }))||120;
-  var W=300,H=100,barW=28,gap=(W-7*barW)/8;
+  var maxVal=Math.max.apply(null,data.map(function(d){ return d.mins; }))||240;
+  var W=300,H=108,barW=26,gap=(W-7*barW)/8;
+  var CHART_H=H-22; // 레이블 공간 제외
   var html='';
+  // 수평 가이드라인
+  [0.5,1].forEach(function(r){
+    var y=CHART_H*(1-r);
+    html+='<line x1="0" y1="'+y+'" x2="'+W+'" y2="'+y+'" stroke="rgba(0,0,0,.06)" stroke-width="1"/>';
+  });
   data.forEach(function(d,i){
     var x=gap+(barW+gap)*i;
-    var bh=Math.max(d.mins/maxVal*(H-24),2);
-    var by=H-bh-18;
-    var col=d.isToday?'#5B52E8':'#C7C4EC';
-    html+='<rect x="'+x+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="5" fill="'+col+'"/>';
-    if(d.mins>0) html+='<text x="'+(x+barW/2)+'" y="'+(by-4)+'" text-anchor="middle" font-size="8" fill="'+col+'" font-family="inherit" font-weight="700">'+Math.round(d.mins/60)+'h</text>';
-    html+='<text x="'+(x+barW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="'+(d.isToday?'#5B52E8':'#999')+'" font-family="inherit" font-weight="'+(d.isToday?700:500)+'">'+d.label+'</text>';
+    var trackH=CHART_H;
+    // 배경 트랙
+    html+='<rect x="'+x+'" y="0" width="'+barW+'" height="'+trackH+'" rx="6" fill="rgba(0,0,0,.04)"/>';
+    // 실제 바
+    var bh=d.mins>0?Math.max(d.mins/maxVal*trackH,6):0;
+    var by=trackH-bh;
+    var col=d.isToday?'#5B52E8':'#A5A0F0';
+    if(bh>0) html+='<rect x="'+x+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="6" fill="'+col+'"/>';
+    // 시간 레이블 (바 위)
+    if(d.mins>0){
+      var h=Math.floor(d.mins/60), m=d.mins%60;
+      var label=h>0?(h+'h'+(m>0?m+'m':'')):(m+'m');
+      html+='<text x="'+(x+barW/2)+'" y="'+(by-3)+'" text-anchor="middle" font-size="8" fill="'+col+'" font-family="inherit" font-weight="700">'+label+'</text>';
+    }
+    // 요일 레이블
+    html+='<text x="'+(x+barW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="'+(d.isToday?'#5B52E8':'#aaa')+'" font-family="inherit" font-weight="'+(d.isToday?700:500)+'">'+d.label+'</text>';
   });
   svg.innerHTML=html;
 }
