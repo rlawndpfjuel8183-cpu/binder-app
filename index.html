@@ -383,9 +383,10 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 .tl-row{
   display:flex;align-items:stretch;
   border-bottom:1px solid var(--bdr);
-  min-height:44px;position:relative;
+  min-height:15px;position:relative;
 }
-.tl-row.half-hour{border-bottom:1px dashed rgba(0,0,0,.05);min-height:22px;}
+.tl-row.half-hour{border-bottom:1px dashed rgba(0,0,0,.07);}
+.tl-row.quarter-hour{border-bottom:1px dotted rgba(0,0,0,.04);}
 .tl-row-label{
   width:44px;flex-shrink:0;padding:4px 6px 0 0;
   text-align:right;font-size:9px;color:var(--muted2);
@@ -1610,7 +1611,7 @@ function getStatusLabel(s){ return s==='done'?'완료':s==='active'?'진행중':
 /* ══════════════════════════════════════════
    TIMELINE RENDER (새 버전)
 ══════════════════════════════════════════ */
-var PX_PER_MIN = 0.78;  // 1시간 = 46.8px
+var PX_PER_MIN = 1.0;  // 1시간 = 60px, 15분 = 15px
 var _dragGoal = null;   // 드래그 중인 골 객체
 var _tlNote = {};       // 날짜별 노트
 
@@ -1651,19 +1652,20 @@ function renderTimeline(){
     }
   }
 
-  // 시간 행 (30분 단위)
-  for(var m = 0; m <= totalMin; m += 30){
+  // 시간 행 (15분 단위)
+  for(var m = 0; m <= totalMin; m += 15){
     var curMin = wake + m;
     var top = m * PX_PER_MIN;
-    var isHour = m % 60 === 0;
+    var isHour = curMin % 60 === 0;
+    var isHalf = curMin % 30 === 0 && !isHour;
     var row = document.createElement('div');
-    row.className = 'tl-row' + (isHour ? '' : ' half-hour');
+    row.className = 'tl-row' + (isHour ? '' : isHalf ? ' half-hour' : ' quarter-hour');
     row.style.position = 'absolute';
     row.style.top = top + 'px';
     row.style.left = '0'; row.style.right = '0';
-    row.style.height = (30 * PX_PER_MIN) + 'px';
+    row.style.height = (15 * PX_PER_MIN) + 'px';
 
-    // 시간 라벨
+    // 시간 라벨 (정각만)
     var lbl = document.createElement('div');
     lbl.className = 'tl-row-label';
     lbl.textContent = isHour ? minToTime(curMin % 1440) : '';
@@ -2534,7 +2536,7 @@ async function aiParseText(){
   var text=document.getElementById('ai-quick-input').value.trim();
   if(!text){ showToast('텍스트를 입력하세요'); return; }
   showToast('AI가 분석 중...', 4000);
-  var system='You are a schedule parser for Korean users. Extract time blocks from the input text and return ONLY a JSON array (no other text). Each item: {"title":"...", "start_time":"HH:MM", "end_time":"HH:MM"}. Today is '+TODAY+'. If no explicit time, suggest reasonable times. Minimum 30min blocks.';
+  var system='You are a schedule parser for Korean users. Extract time blocks from the input text and return ONLY a JSON array (no other text). Each item: {"title":"...", "start_time":"HH:MM", "end_time":"HH:MM"}. Today is '+TODAY+'. If no explicit time, suggest reasonable times. Minimum 15min blocks. Use 15-minute increments for all times (e.g. 09:00, 09:15, 09:30, 09:45).';
   var result=await callClaude(system, text);
   if(!result) return;
   try{
