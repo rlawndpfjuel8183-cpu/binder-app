@@ -804,6 +804,26 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         </div>
         <div id="home-timeline-preview" class="card" style="padding:12px;min-height:80px;"></div>
       </div>
+
+      <!-- 빠른 액션 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="openMorningBriefing()">
+          <i class="fa-solid fa-sun" style="font-size:18px;color:var(--amber);"></i>
+          <span style="font-size:12px;font-weight:700;">아침 브리핑</span>
+        </button>
+        <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="openEveningPlanning()">
+          <i class="fa-solid fa-moon" style="font-size:18px;color:var(--indigo);"></i>
+          <span style="font-size:12px;font-weight:700;">저녁 플래닝</span>
+        </button>
+        <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="openCarryover()">
+          <i class="fa-solid fa-forward" style="font-size:18px;color:var(--rose);"></i>
+          <span style="font-size:12px;font-weight:700;">미완료 이월</span>
+        </button>
+        <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="openWeeklyReport()">
+          <i class="fa-solid fa-chart-bar" style="font-size:18px;color:var(--green);"></i>
+          <span style="font-size:12px;font-weight:700;">주간 리포트</span>
+        </button>
+      </div>
     </div>
   </section>
 
@@ -1337,6 +1357,64 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <button class="btn btn-primary" style="flex:1;" onclick="saveFixed()">저장</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ 미완료 이월 모달 ═══ -->
+<div class="modal-overlay" id="modal-carryover" onclick="closeModal('modal-carryover',event)">
+  <div class="modal-box" style="max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🌙 미완료 항목 검토</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">각 항목을 이월하거나 버릴 수 있어요.</p>
+    <div id="carryover-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-carryover')">닫기</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="applyAllCarryover()">
+        <i class="fa-solid fa-check-double"></i> 선택 이월 적용
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 저녁 플래닝 모달 ═══ -->
+<div class="modal-overlay" id="modal-evening" onclick="closeModal('modal-evening',event)">
+  <div class="modal-box" style="max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🌆 저녁 플래닝</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">내일 진행할 골을 활성화하고 타임라인을 준비하세요.</p>
+    <div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--indigo);margin-bottom:6px;">📅 내일 날짜</div>
+      <div id="evening-tomorrow-date" style="font-size:15px;font-weight:700;"></div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">진행 중 골</div>
+    <div id="evening-goal-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-evening')">닫기</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="closeModal('modal-evening');switchView('timeline');tlDate=getTomorrow();renderTimeline();">
+        <i class="fa-solid fa-calendar-plus"></i> 타임라인 열기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 아침 브리핑 모달 ═══ -->
+<div class="modal-overlay" id="modal-briefing" onclick="closeModal('modal-briefing',event)">
+  <div class="modal-box" style="max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-handle"></div>
+    <div id="briefing-content" style="flex:1;overflow-y:auto;"></div>
+    <button class="btn btn-primary" style="margin-top:12px;" onclick="closeModal('modal-briefing')">
+      <i class="fa-solid fa-rocket"></i> 오늘도 파이팅!
+    </button>
+  </div>
+</div>
+
+<!-- ═══ 주간 리포트 모달 ═══ -->
+<div class="modal-overlay" id="modal-weekly" onclick="closeModal('modal-weekly',event)">
+  <div class="modal-box" style="max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📊 주간 리포트</div>
+    <div id="weekly-content" style="flex:1;overflow-y:auto;"></div>
+    <button class="btn btn-secondary" style="margin-top:12px;" onclick="closeModal('modal-weekly')">닫기</button>
   </div>
 </div>
 
@@ -2842,6 +2920,7 @@ function saveBlock(){
   renderTimeline();
   renderHome();
   showToast('저장됐습니다!');
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted') scheduleNotifications();
 }
 
 /* ══════════════════════════════════════════
@@ -3059,19 +3138,261 @@ async function setupPushNotifications(){
     scheduleNotifications();
   } else { showToast('알림 권한이 거부됐습니다'); }
 }
+var _notifTimers=[];
 function scheduleNotifications(){
+  // 기존 타이머 초기화
+  _notifTimers.forEach(function(t){ clearTimeout(t); });
+  _notifTimers=[];
   var plans=getPlans(TODAY);
   var now=new Date();
   plans.forEach(function(p){
     var start=new Date(TODAY+'T'+p.start_time+':00');
-    var notifTime=new Date(start.getTime()-5*60000);
-    var delay=notifTime-now;
-    if(delay>0){
-      setTimeout(function(){
-        new Notification('바인더 알림 🔔',{body:'5분 후: '+p.title+' ('+p.start_time+')',icon:'/favicon.ico'});
-      },delay);
+    // 5분 전 알림
+    var t1=new Date(start.getTime()-5*60000);
+    var d1=t1-now;
+    if(d1>0){
+      _notifTimers.push(setTimeout(function(){
+        new Notification('⏰ 곧 시작해요!',{body:'5분 후: '+p.title+' ('+p.start_time+')',icon:'/favicon.ico',tag:'binder-'+p.id+'-pre'});
+      },d1));
+    }
+    // 정시 알림
+    var d2=start-now;
+    if(d2>0){
+      _notifTimers.push(setTimeout(function(){
+        new Notification('🚀 지금 시작!',{body:p.title+' 시작 시간입니다!',icon:'/favicon.ico',tag:'binder-'+p.id+'-start'});
+      },d2));
     }
   });
+  if(plans.length>0) console.log('[바인더] 알림 '+plans.length+'개 예약됨');
+}
+
+/* ══════════════════════════════════════════
+   2순위: 미완료 이월 시스템
+══════════════════════════════════════════ */
+function getYesterday(){
+  var d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10);
+}
+function getTomorrow(){
+  var d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10);
+}
+
+function openCarryover(){
+  renderCarryoverList();
+  openModal('modal-carryover');
+}
+
+function renderCarryoverList(){
+  var yesterday=getYesterday();
+  var plans=getPlans(yesterday).filter(function(p){ return p.type!=='fixed'; });
+  var tracks=getTracks(yesterday);
+  // 미완료 = 플랜에 있는데 트래커에 기록 없는 것
+  var incomplete=plans.filter(function(p){
+    return !tracks.some(function(t){ return t.plan_id===p.id||t.title===p.title; });
+  });
+  var el=document.getElementById('carryover-list');
+  if(incomplete.length===0){
+    el.innerHTML='<div class="empty-state" style="padding:24px;"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i><p>미완료 항목이 없어요!<br/>어제도 훌륭하셨군요 🎉</p></div>';
+    return;
+  }
+  el.innerHTML=incomplete.map(function(p,i){
+    return '<div style="background:var(--s2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;">'
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+      +'<div style="width:3px;height:32px;border-radius:2px;background:'+(p.color||'var(--indigo)')+';flex-shrink:0;"></div>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:14px;font-weight:700;">'+escHtml(p.title)+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);">'+p.start_time+' – '+p.end_time+'</div>'
+      +'</div></div>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button class="btn btn-secondary btn-sm" style="flex:1;border-color:var(--rose);color:var(--rose);" onclick="discardCarryover('+i+',this.closest(\'div[style]\'))">'
+      +'<i class="fa-solid fa-trash-can"></i> 버리기</button>'
+      +'<button class="btn btn-primary btn-sm" style="flex:1;" onclick="deferCarryover(\''+p.id+'\',\''+escHtml(p.title)+'\',\''+p.start_time+'\',\''+p.end_time+'\',\''+i+'\',this.closest(\'div[style]\'))">'
+      +'<i class="fa-solid fa-forward"></i> 이월</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function deferCarryover(planId, title, startTime, endTime, idx, el){
+  var tomorrow=getTomorrow();
+  var dur=timeToMin(endTime)-timeToMin(startTime);
+  // 내일 첫 번째 빈 슬롯 찾기
+  var slots=getFreeSlots(tomorrow).filter(function(sl){ return sl.e-sl.s>=dur; });
+  var slot=slots[0];
+  var newStart=slot?minToTime(slot.s):startTime;
+  var newEnd=slot?minToTime(slot.s+dur):endTime;
+  var newPlan={
+    id:genId(), plan_date:tomorrow,
+    title:title, start_time:newStart, end_time:newEnd,
+    color:'#5B52E8', type:'plan', goal_id:null
+  };
+  upsertPlan(newPlan);
+  Promise.resolve(supa.from('plans').upsert(newPlan)).catch(function(){});
+  el.style.opacity='0.4';
+  el.style.pointerEvents='none';
+  el.querySelector('button:last-child').textContent='✓ '+minToTime(slot?slot.s:timeToMin(startTime))+' 이월됨';
+  showToast('내일 '+newStart+'에 이월됐습니다!');
+}
+
+function discardCarryover(idx, el){
+  el.style.opacity='0.3';
+  el.style.pointerEvents='none';
+  el.querySelector('button:first-child').textContent='✓ 버림';
+}
+
+function applyAllCarryover(){
+  closeModal('modal-carryover');
+  showToast('이월 처리가 완료됐습니다!');
+  renderHome();
+}
+
+/* ══════════════════════════════════════════
+   4순위: 저녁 플래닝 모드
+══════════════════════════════════════════ */
+function openEveningPlanning(){
+  var tomorrow=getTomorrow();
+  var d=new Date(tomorrow+'T00:00:00');
+  var days=['일','월','화','수','목','금','토'];
+  document.getElementById('evening-tomorrow-date').textContent=
+    (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+') 플래닝';
+  var goals=getGoals().filter(function(g){ return g.status!=='done'; });
+  var el=document.getElementById('evening-goal-list');
+  if(goals.length===0){
+    el.innerHTML='<div class="empty-state" style="padding:20px;"><p>골을 먼저 추가해보세요!</p></div>';
+  } else {
+    el.innerHTML=goals.map(function(g){
+      var isActive=g.status==='active';
+      var color=g.color||'#5B52E8';
+      var prog=calcGoalProgress(g.id);
+      return '<div style="display:flex;align-items:center;gap:10px;background:var(--s2);border-radius:10px;padding:10px 12px;cursor:pointer;" onclick="toggleEveningGoal(\''+g.id+'\',this)">'
+        +'<div style="width:14px;height:14px;border-radius:50%;border:2px solid '+color+';background:'+(isActive?color:'transparent')+';flex-shrink:0;" id="evening-dot-'+g.id+'"></div>'
+        +'<div style="flex:1;">'
+        +'<div style="font-size:13px;font-weight:700;">'+escHtml(g.title)+'</div>'
+        +(prog!==null?'<div style="font-size:11px;color:var(--muted);">진행 '+prog+'%</div>':'')
+        +'</div>'
+        +'<span class="badge '+(isActive?'badge-indigo':'badge-gray')+'" id="evening-badge-'+g.id+'">'+(isActive?'진행중':'대기')+'</span>'
+        +'</div>';
+    }).join('');
+  }
+  openModal('modal-evening');
+}
+
+function toggleEveningGoal(id, el){
+  var goals=getGoals();
+  var g=goals.find(function(x){ return x.id===id; });
+  if(!g) return;
+  g.status=g.status==='active'?'backlog':'active';
+  upsertGoal(g);
+  Promise.resolve(supa.from('goals').upsert(g)).catch(function(){});
+  var dot=document.getElementById('evening-dot-'+id);
+  var badge=document.getElementById('evening-badge-'+id);
+  if(dot){ dot.style.background=g.status==='active'?(g.color||'#5B52E8'):'transparent'; }
+  if(badge){ badge.className='badge '+(g.status==='active'?'badge-indigo':'badge-gray'); badge.textContent=g.status==='active'?'진행중':'대기'; }
+}
+
+/* ══════════════════════════════════════════
+   5순위: 아침 브리핑
+══════════════════════════════════════════ */
+function openMorningBriefing(){
+  var d=new Date();
+  var days=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+  var mit=getMIT();
+  var goals=getGoals().filter(function(g){ return g.status==='active'; });
+  var plans=getPlans(TODAY);
+  var fixed=getFixedForDate(TODAY);
+  var allBlocks=[].concat(
+    fixed.map(function(f){ return {title:f.title,start:f.start_time,end:f.end_time,color:f.color||'#94a3b8',fixed:true}; }),
+    plans.map(function(p){ return {title:p.title,start:p.start_time,end:p.end_time,color:p.color||'#5B52E8',fixed:false}; })
+  ).sort(function(a,b){ return timeToMin(a.start)-timeToMin(b.start); });
+  var av=calcAvailable(TODAY);
+  var el=document.getElementById('briefing-content');
+  el.innerHTML=
+    '<div style="text-align:center;padding:8px 0 16px;">'
+    +'<div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">'+days[d.getDay()]+'</div>'
+    +'<div style="font-size:26px;font-weight:900;margin:4px 0;">'+(d.getMonth()+1)+'월 '+d.getDate()+'일</div>'
+    +'<div style="font-size:12px;color:var(--muted);">가용 시간 '+minToHM(av.available)+' · 계획 '+minToHM(av.usedPlan)+'</div>'
+    +'</div>'
+    +(mit&&mit.text?'<div style="background:var(--indigo-light);border:1.5px solid var(--indigo);border-radius:10px;padding:12px 14px;margin-bottom:14px;">'
+    +'<div style="font-size:10px;font-weight:700;color:var(--indigo);letter-spacing:.06em;margin-bottom:4px;">⭐ 오늘의 MIT</div>'
+    +'<div style="font-size:15px;font-weight:700;"'+( mit.done?' style="text-decoration:line-through;opacity:.5"':'')+'>'+escHtml(mit.text)+'</div>'
+    +'</div>':'')
+    +(goals.length>0?'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">진행 중 골 ('+goals.length+'개)</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">'
+    +goals.slice(0,5).map(function(g){
+      var prog=calcGoalProgress(g.id);
+      return '<div style="display:flex;align-items:center;gap:8px;">'
+        +'<div style="width:8px;height:8px;border-radius:50%;background:'+(g.color||'#5B52E8')+';flex-shrink:0;"></div>'
+        +'<div style="font-size:13px;font-weight:600;flex:1;">'+escHtml(g.title)+'</div>'
+        +(prog!==null?'<div style="font-size:11px;color:var(--muted);">'+prog+'%</div>':'')+'</div>';
+    }).join('')+'</div>':'')
+    +(allBlocks.length>0?'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">오늘 일정 ('+allBlocks.length+'개)</div>'
+    +'<div style="display:flex;flex-direction:column;gap:4px;">'
+    +allBlocks.map(function(b){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:8px;">'
+        +'<div style="width:3px;height:24px;border-radius:2px;background:'+b.color+';flex-shrink:0;"></div>'
+        +'<div style="font-size:11px;color:var(--muted);width:72px;font-variant-numeric:tabular-nums;">'+b.start+' – '+b.end+'</div>'
+        +'<div style="font-size:13px;font-weight:600;flex:1;">'+escHtml(b.title)+'</div>'
+        +(b.fixed?'<span class="badge badge-gray">고정</span>':'')+'</div>';
+    }).join('')+'</div>':'<div class="empty-state" style="padding:16px;"><p>오늘 일정이 없습니다.</p></div>');
+  openModal('modal-briefing');
+}
+
+/* ══════════════════════════════════════════
+   6순위: 주간/월간 리포트
+══════════════════════════════════════════ */
+function openWeeklyReport(){
+  var days=[];
+  for(var i=6;i>=0;i--){
+    var d=new Date(); d.setDate(d.getDate()-i);
+    days.push(d.toISOString().slice(0,10));
+  }
+  var dayNames=['일','월','화','수','목','금','토'];
+  var rows=days.map(function(date){
+    var plans=getPlans(date).filter(function(p){ return p.type!=='fixed'; });
+    var tracks=getTracks(date);
+    var done=tracks.length;
+    var planned=plans.length;
+    var d=new Date(date+'T00:00:00');
+    var pct=planned>0?Math.min(100,Math.round(done/planned*100)):0;
+    var trackMins=tracks.reduce(function(a,t){ return a+timeToMin(t.end_time)-timeToMin(t.start_time); },0);
+    return {date:date,label:(d.getMonth()+1)+'/'+d.getDate()+' ('+dayNames[d.getDay()]+')',planned:planned,done:done,pct:pct,trackMins:trackMins};
+  });
+  var totalPlanned=rows.reduce(function(a,r){ return a+r.planned; },0);
+  var totalDone=rows.reduce(function(a,r){ return a+r.done; },0);
+  var totalMins=rows.reduce(function(a,r){ return a+r.trackMins; },0);
+  var weekPct=totalPlanned>0?Math.min(100,Math.round(totalDone/totalPlanned*100)):0;
+  var goals=getGoals();
+  var doneGoals=goals.filter(function(g){ return g.status==='done'; }).length;
+  var activeGoals=goals.filter(function(g){ return g.status==='active'; }).length;
+  var el=document.getElementById('weekly-content');
+  el.innerHTML=
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">'
+    +'<div style="background:var(--s2);border-radius:10px;padding:12px;text-align:center;">'
+    +'<div style="font-size:22px;font-weight:900;color:var(--indigo);">'+weekPct+'%</div>'
+    +'<div style="font-size:10px;color:var(--muted);margin-top:2px;">주간 달성률</div></div>'
+    +'<div style="background:var(--s2);border-radius:10px;padding:12px;text-align:center;">'
+    +'<div style="font-size:22px;font-weight:900;">'+minToHM(totalMins)+'</div>'
+    +'<div style="font-size:10px;color:var(--muted);margin-top:2px;">총 실행 시간</div></div>'
+    +'<div style="background:var(--s2);border-radius:10px;padding:12px;text-align:center;">'
+    +'<div style="font-size:22px;font-weight:900;color:var(--green);">'+doneGoals+'</div>'
+    +'<div style="font-size:10px;color:var(--muted);margin-top:2px;">완료 골</div></div>'
+    +'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">일별 현황</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;">'
+    +rows.map(function(r){
+      var barColor=r.pct>=80?'var(--green)':r.pct>=50?'var(--indigo)':'var(--amber)';
+      var isToday=r.date===TODAY;
+      return '<div style="background:var(--s2);border-radius:8px;padding:8px 12px;'+(isToday?'border:1.5px solid var(--indigo);':'')+'">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">'
+        +'<div style="font-size:12px;font-weight:'+(isToday?'800':'600')+';">'+r.label+'</div>'
+        +(isToday?'<span class="badge badge-indigo">오늘</span>':'')
+        +'<div style="flex:1;"></div>'
+        +'<div style="font-size:11px;color:var(--muted);">'+r.done+'/'+r.planned+'블록 · '+minToHM(r.trackMins)+'</div>'
+        +'</div>'
+        +'<div style="height:6px;background:var(--s3);border-radius:3px;">'
+        +'<div style="height:6px;border-radius:3px;background:'+barColor+';width:'+r.pct+'%;transition:.3s;"></div>'
+        +'</div>'
+        +'</div>';
+    }).join('')+'</div>';
+  openModal('modal-weekly');
 }
 
 /* ══════════════════════════════════════════
