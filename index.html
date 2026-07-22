@@ -805,6 +805,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div id="home-timeline-preview" class="card" style="padding:12px;min-height:80px;"></div>
       </div>
 
+      <!-- 스마트 알림 (인지부하·딜레이 패턴·시간 정확도) -->
+      <div id="home-smart-alerts" style="display:none;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+
       <!-- 빠른 액션 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="openMorningBriefing()">
@@ -822,6 +825,14 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="openWeeklyReport()">
           <i class="fa-solid fa-chart-bar" style="font-size:18px;color:var(--green);"></i>
           <span style="font-size:12px;font-weight:700;">주간 리포트</span>
+        </button>
+        <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="startVoiceCapture()">
+          <i class="fa-solid fa-microphone" style="font-size:18px;color:var(--amber);"></i>
+          <span style="font-size:12px;font-weight:700;">음성 캡처</span>
+        </button>
+        <button class="btn btn-secondary" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;height:auto;" onclick="openReroute()">
+          <i class="fa-solid fa-shuffle" style="font-size:18px;color:var(--rose);"></i>
+          <span style="font-size:12px;font-weight:700;">리루팅</span>
         </button>
       </div>
     </div>
@@ -1218,13 +1229,17 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </div>
       <!-- 하위 항목 추가 -->
       <div id="goal-add-child-row" style="display:none;">
+        <div id="goal-survival-badge" style="display:none;margin-bottom:8px;"></div>
         <div class="divider"><hr/><span>하위 항목</span><hr/></div>
-        <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="aiBreakdownGoal()">
             <i class="fa-solid fa-wand-magic-sparkles"></i> AI로 쪼개기
           </button>
           <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openPastGoalImport()">
             <i class="fa-solid fa-clock-rotate-left"></i> 이전 골 불러오기
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="saveDNATemplate()">
+            <i class="fa-solid fa-dna"></i> 템플릿 저장
           </button>
         </div>
         <div id="ai-suggest-result" style="margin-bottom:8px;"></div>
@@ -1415,6 +1430,38 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
     <div class="modal-title">📊 주간 리포트</div>
     <div id="weekly-content" style="flex:1;overflow-y:auto;"></div>
     <button class="btn btn-secondary" style="margin-top:12px;" onclick="closeModal('modal-weekly')">닫기</button>
+  </div>
+</div>
+
+<!-- ═══ 골 DNA 템플릿 모달 ═══ -->
+<div class="modal-overlay" id="modal-dna" onclick="closeModal('modal-dna',event)">
+  <div class="modal-box" style="max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🧬 골 DNA 템플릿</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">자주 쓰는 골 구조를 템플릿으로 저장하고 빠르게 재사용하세요.</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="saveDNATemplate()">
+        <i class="fa-solid fa-dna"></i> 현재 골을 템플릿으로
+      </button>
+    </div>
+    <div id="dna-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    <button class="btn btn-secondary" style="margin-top:12px;" onclick="closeModal('modal-dna')">닫기</button>
+  </div>
+</div>
+
+<!-- ═══ 실시간 리루팅 모달 ═══ -->
+<div class="modal-overlay" id="modal-reroute" onclick="closeModal('modal-reroute',event)">
+  <div class="modal-box" style="max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔀 실시간 리루팅</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">놓친 블록을 남은 시간에 재배치하는 방법을 제안합니다.</p>
+    <div id="reroute-content" style="flex:1;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-reroute')">닫기</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="applyReroute()">
+        <i class="fa-solid fa-check"></i> 적용
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1666,6 +1713,7 @@ function renderHome(){
     '오늘도 잘 해봅시다!';
 
   renderMIT();
+  renderSmartAlerts();
 
   // 가용 시간
   var av=calcAvailable(TODAY);
@@ -2522,6 +2570,18 @@ function openGoalEdit(id, isTop){
   buildColorPicker('goal-color-picker', _editGoalColor);
   updateGoalTypeUI();
   updateGoalChildrenList();
+  // 생존율 배지
+  var survEl=document.getElementById('goal-survival-badge');
+  if(survEl){
+    var surv=calcSurvivalRate(id);
+    if(surv){
+      var col=surv.pct>=70?'var(--green)':surv.pct>=40?'var(--amber)':'var(--rose)';
+      survEl.style.display='block';
+      survEl.innerHTML='<div style="background:rgba(0,0,0,.04);border:1px solid '+col+';border-radius:8px;padding:8px 12px;font-size:12px;">'
+        +'<span style="font-weight:700;color:'+col+';">마감일 생존율 '+surv.pct+'%</span>'
+        +' · 남은 '+surv.daysLeft+'일 · 필요 '+formatEstMin(surv.totalEst)+'</div>';
+    } else { survEl.style.display='none'; }
+  }
   openDrawer();
 }
 
@@ -3393,6 +3453,301 @@ function openWeeklyReport(){
         +'</div>';
     }).join('')+'</div>';
   openModal('modal-weekly');
+}
+
+/* ══════════════════════════════════════════
+   8순위: 음성 퀵 캡처
+══════════════════════════════════════════ */
+var _voiceRecognition=null;
+
+function startVoiceCapture(){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    showToast('이 브라우저는 음성 인식을 지원하지 않습니다');
+    return;
+  }
+  var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _voiceRecognition=new SpeechRecognition();
+  _voiceRecognition.lang='ko-KR';
+  _voiceRecognition.interimResults=false;
+  _voiceRecognition.maxAlternatives=1;
+  showToast('🎤 말씀하세요... (골/일정 내용을 말해주세요)');
+  _voiceRecognition.onresult=function(e){
+    var text=e.results[0][0].transcript;
+    showToast('인식: "'+text+'" — AI 분석 중...');
+    processVoiceInput(text);
+  };
+  _voiceRecognition.onerror=function(e){
+    showToast('음성 인식 오류: '+e.error);
+  };
+  _voiceRecognition.start();
+}
+
+async function processVoiceInput(text){
+  var apiKey=getApiKey();
+  if(!apiKey){ showToast('설정에서 API 키를 입력해주세요'); return; }
+  var system='사용자가 음성으로 할 일이나 일정을 말했습니다. JSON으로만 응답하세요.\n{\n  "type": "goal" | "plan",\n  "title": "제목",\n  "start_time": "HH:MM" (plan일 때),\n  "end_time": "HH:MM" (plan일 때),\n  "est_min": 숫자 (goal일 때)\n}';
+  try{
+    var res=await callClaude(system,'음성 입력: '+text);
+    var json=JSON.parse(res.replace(/```json?|```/g,'').trim());
+    if(json.type==='plan'&&json.start_time&&json.end_time){
+      var p={id:genId(),plan_date:TODAY,title:json.title,start_time:json.start_time,end_time:json.end_time,color:'#5B52E8',type:'plan',created_at:new Date().toISOString()};
+      upsertPlan(p);
+      Promise.resolve(supa.from('plans').upsert(p)).catch(function(){});
+      renderTimeline(); renderHome();
+      showToast('📅 "'+json.title+'" 플랜 추가됨 ('+json.start_time+')');
+    } else {
+      var g={id:genId(),parent_id:null,type:'short_job',title:json.title,status:'backlog',priority:2,color:'#5B52E8',est_min:json.est_min||null,created_at:new Date().toISOString()};
+      upsertGoal(g);
+      Promise.resolve(supa.from('goals').upsert(g)).catch(function(){});
+      renderGoals(); renderHome();
+      showToast('🎯 "'+json.title+'" 골 추가됨');
+    }
+  } catch(e){ showToast('AI 파싱 실패: 다시 시도해주세요'); }
+}
+
+/* ══════════════════════════════════════════
+   7순위: 골 DNA 템플릿
+══════════════════════════════════════════ */
+function getDNATemplates(){ try{ return JSON.parse(localStorage.getItem('b2_dna')||'[]'); }catch(e){ return []; } }
+function saveDNATemplates(arr){ localStorage.setItem('b2_dna', JSON.stringify(arr)); }
+
+function openDNAModal(){
+  renderDNAList();
+  openModal('modal-dna');
+}
+
+function saveDNATemplate(){
+  if(!_editGoalId){ showToast('먼저 골을 저장하세요'); return; }
+  var goal=getGoals().find(function(g){ return g.id===_editGoalId; });
+  if(!goal){ showToast('골을 찾을 수 없습니다'); return; }
+  var children=getGoals().filter(function(g){ return g.parent_id===_editGoalId; });
+  var tpl={
+    id:genId(), name:goal.title, type:goal.type, color:goal.color,
+    est_min:goal.est_min,
+    children:children.map(function(c){ return {title:c.title,type:c.type,est_min:c.est_min}; }),
+    created_at:new Date().toISOString()
+  };
+  var arr=getDNATemplates();
+  arr.unshift(tpl);
+  saveDNATemplates(arr.slice(0,20));
+  showToast('템플릿으로 저장됐습니다 🧬');
+  renderDNAList();
+}
+
+function renderDNAList(){
+  var templates=getDNATemplates();
+  var el=document.getElementById('dna-list');
+  if(!el) return;
+  if(templates.length===0){
+    el.innerHTML='<div class="empty-state" style="padding:20px;"><i class="fa-solid fa-dna"></i><p>저장된 템플릿이 없습니다.<br/>골 편집 중에 "현재 골을 템플릿으로" 버튼을 누르세요.</p></div>';
+    return;
+  }
+  el.innerHTML=templates.map(function(t){
+    return '<div style="background:var(--s2);border-radius:10px;padding:12px;">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+      +'<div style="width:10px;height:10px;border-radius:50%;background:'+(t.color||'var(--indigo)')+';flex-shrink:0;"></div>'
+      +'<div style="font-size:14px;font-weight:700;flex:1;">'+escHtml(t.name)+'</div>'
+      +(t.est_min?'<span class="badge badge-gray">'+formatEstMin(t.est_min)+'</span>':'')
+      +'</div>'
+      +(t.children.length>0?'<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;padding-left:18px;">'
+      +t.children.slice(0,4).map(function(c){
+        return '<div style="font-size:12px;color:var(--muted);">• '+escHtml(c.title)+(c.est_min?' ('+formatEstMin(c.est_min)+')':'')+'</div>';
+      }).join('')
+      +(t.children.length>4?'<div style="font-size:11px;color:var(--muted);">+ '+(t.children.length-4)+'개 더</div>':'')
+      +'</div>':'')
+      +'<div style="display:flex;gap:6px;">'
+      +'<button class="btn btn-ghost btn-sm" style="flex:1;color:var(--rose);" onclick="deleteDNATemplate(\''+t.id+'\')">'
+      +'<i class="fa-solid fa-trash-can"></i> 삭제</button>'
+      +'<button class="btn btn-primary btn-sm" style="flex:1;" onclick="applyDNATemplate(\''+t.id+'\')">'
+      +'<i class="fa-solid fa-file-import"></i> 사용</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function deleteDNATemplate(id){
+  saveDNATemplates(getDNATemplates().filter(function(t){ return t.id!==id; }));
+  renderDNAList();
+  showToast('삭제됐습니다');
+}
+
+function applyDNATemplate(id){
+  var tpl=getDNATemplates().find(function(t){ return t.id===id; });
+  if(!tpl) return;
+  var parentGoal={id:genId(),parent_id:null,type:tpl.type||'project',title:tpl.name,status:'backlog',
+    priority:2,color:tpl.color||'#5B52E8',est_min:tpl.est_min,created_at:new Date().toISOString()};
+  upsertGoal(parentGoal);
+  Promise.resolve(supa.from('goals').upsert(parentGoal)).catch(function(){});
+  tpl.children.forEach(function(c){
+    var child={id:genId(),parent_id:parentGoal.id,type:c.type||'short_job',title:c.title,status:'backlog',
+      priority:2,color:tpl.color||'#5B52E8',est_min:c.est_min,created_at:new Date().toISOString()};
+    upsertGoal(child);
+    Promise.resolve(supa.from('goals').upsert(child)).catch(function(){});
+  });
+  closeModal('modal-dna');
+  switchView('goal');
+  renderGoals();
+  showToast('템플릿이 적용됐습니다! ✨ 골 탭에서 확인하세요.');
+}
+
+/* ══════════════════════════════════════════
+   9순위: 마감일 생존율 예측
+══════════════════════════════════════════ */
+function calcSurvivalRate(goalId){
+  var goal=getGoals().find(function(g){ return g.id===goalId; });
+  if(!goal||!goal.deadline) return null;
+  var children=getGoals().filter(function(g){ return g.parent_id===goalId; });
+  var totalEst=children.reduce(function(a,c){ return a+(c.est_min||0); },0);
+  if(!totalEst && goal.est_min) totalEst=goal.est_min;
+  if(!totalEst) return null;
+  var daysLeft=Math.max(0,Math.ceil((new Date(goal.deadline)-new Date())/86400000));
+  var s=getSettings();
+  var wakeM=timeToMin(s.wake_time||'06:30');
+  var sleepM=timeToMin(s.sleep_time||'23:30');
+  var dayHours=(sleepM-wakeM)/60;
+  var availableTotal=daysLeft*dayHours*60*0.6; // 60% 실사용 가정
+  var pct=Math.min(100,Math.round(availableTotal/totalEst*100));
+  return {pct:pct,daysLeft:daysLeft,totalEst:totalEst,available:Math.round(availableTotal)};
+}
+
+/* ══════════════════════════════════════════
+   10순위: 인지 부하 경고
+══════════════════════════════════════════ */
+function checkCognitiveLoad(date){
+  var plans=getPlans(date||TODAY).filter(function(p){ return p.type!=='fixed'; });
+  var totalMins=plans.reduce(function(a,p){ return a+timeToMin(p.end_time)-timeToMin(p.start_time); },0);
+  var av=calcAvailable(date||TODAY);
+  var loadPct=av.available>0?Math.round(totalMins/av.available*100):0;
+  if(loadPct>90){
+    return {level:'danger',msg:'⚠️ 오늘 계획이 가용 시간의 '+loadPct+'%입니다. 번아웃 위험!',pct:loadPct};
+  } else if(loadPct>75){
+    return {level:'warn',msg:'📊 오늘 계획이 가용 시간의 '+loadPct+'%로 빡빡합니다.',pct:loadPct};
+  }
+  return null;
+}
+
+/* ══════════════════════════════════════════
+   11순위: 딜레이 패턴 감지
+══════════════════════════════════════════ */
+function detectDelayPatterns(){
+  var result=[];
+  var allPlans=getAllPlans().filter(function(p){ return p.type!=='fixed'&&p.plan_date<TODAY; });
+  var allTracks=JSON.parse(localStorage.getItem('b2_tracks')||'[]');
+  // 시간대별 미완료율 계산
+  var slotMap={};
+  allPlans.forEach(function(p){
+    var h=parseInt(p.start_time.split(':')[0]);
+    var slot=h<12?'오전':h<18?'오후':'저녁';
+    if(!slotMap[slot]) slotMap[slot]={planned:0,done:0};
+    slotMap[slot].planned++;
+    var done=allTracks.some(function(t){ return t.track_date===p.plan_date&&(t.title===p.title||t.plan_id===p.id); });
+    if(done) slotMap[slot].done++;
+  });
+  Object.keys(slotMap).forEach(function(slot){
+    var s=slotMap[slot];
+    if(s.planned>=3){
+      var pct=Math.round(s.done/s.planned*100);
+      if(pct<50) result.push({slot:slot,pct:pct,planned:s.planned});
+    }
+  });
+  return result;
+}
+
+/* ══════════════════════════════════════════
+   12순위: 실시간 리루팅
+══════════════════════════════════════════ */
+var _rerouteItems=[];
+
+function openReroute(){
+  var nowM=new Date().getHours()*60+new Date().getMinutes();
+  var plans=getPlans(TODAY).filter(function(p){ return p.type!=='fixed'; });
+  // 이미 지난 블록 중 트래커에 없는 것
+  var tracks=getTracks(TODAY);
+  var missed=plans.filter(function(p){
+    var endM=timeToMin(p.end_time);
+    if(endM>nowM) return false;
+    return !tracks.some(function(t){ return t.title===p.title||t.plan_id===p.id; });
+  });
+  if(missed.length===0){ showToast('놓친 블록이 없습니다 ✅'); return; }
+  var freeSlots=getFreeSlots(TODAY).filter(function(sl){ return sl.s>=nowM&&sl.e-sl.s>=15; });
+  _rerouteItems=[];
+  missed.forEach(function(p){
+    var dur=timeToMin(p.end_time)-timeToMin(p.start_time);
+    var slot=freeSlots.find(function(sl){ return sl.e-sl.s>=dur; });
+    if(slot){
+      _rerouteItems.push({plan:p,newStart:minToTime(slot.s),newEnd:minToTime(slot.s+dur)});
+      // 슬롯 사용 표시
+      freeSlots=freeSlots.map(function(sl){
+        if(sl===slot) return {s:slot.s+dur,e:slot.e};
+        return sl;
+      }).filter(function(sl){ return sl.e-sl.s>=15; });
+    }
+  });
+  var el=document.getElementById('reroute-content');
+  if(_rerouteItems.length===0){
+    el.innerHTML='<div class="empty-state" style="padding:20px;"><p>남은 시간에 재배치할 슬롯이 없습니다.</p></div>';
+  } else {
+    el.innerHTML='<div style="display:flex;flex-direction:column;gap:8px;">'
+      +_rerouteItems.map(function(item,i){
+        return '<div style="background:var(--s2);border-radius:10px;padding:12px;">'
+          +'<div style="font-size:13px;font-weight:700;margin-bottom:6px;">'+escHtml(item.plan.title)+'</div>'
+          +'<div style="display:flex;align-items:center;gap:8px;font-size:12px;">'
+          +'<span style="color:var(--rose);text-decoration:line-through;">'+item.plan.start_time+' – '+item.plan.end_time+'</span>'
+          +'<i class="fa-solid fa-arrow-right" style="color:var(--muted);"></i>'
+          +'<span style="color:var(--green);font-weight:700;">'+item.newStart+' – '+item.newEnd+'</span>'
+          +'</div></div>';
+      }).join('')+'</div>';
+  }
+  openModal('modal-reroute');
+}
+
+function applyReroute(){
+  _rerouteItems.forEach(function(item){
+    var updated=Object.assign({},item.plan,{id:genId(),start_time:item.newStart,end_time:item.newEnd,created_at:new Date().toISOString()});
+    upsertPlan(updated);
+    Promise.resolve(supa.from('plans').upsert(updated)).catch(function(){});
+  });
+  closeModal('modal-reroute');
+  renderTimeline();
+  renderHome();
+  showToast(_rerouteItems.length+'개 블록이 재배치됐습니다 🔀');
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted') scheduleNotifications();
+}
+
+/* ══════════════════════════════════════════
+   13순위: 개인 시간 학습 엔진
+══════════════════════════════════════════ */
+function getTimeAccuracy(){
+  var tracks=JSON.parse(localStorage.getItem('b2_tracks')||'[]');
+  var plans=getAllPlans();
+  var matched=[];
+  tracks.forEach(function(t){
+    var plan=plans.find(function(p){ return p.plan_date===t.track_date&&(p.title===t.title||p.id===t.plan_id); });
+    if(plan){
+      var planned=timeToMin(plan.end_time)-timeToMin(plan.start_time);
+      var actual=timeToMin(t.end_time)-timeToMin(t.start_time);
+      if(planned>0&&actual>0) matched.push({title:t.title,planned:planned,actual:actual,ratio:actual/planned});
+    }
+  });
+  if(matched.length===0) return null;
+  var avgRatio=matched.reduce(function(a,m){ return a+m.ratio; },0)/matched.length;
+  return {avgRatio:Math.round(avgRatio*100),count:matched.length,
+    overestimate:matched.filter(function(m){ return m.ratio<0.8; }).length,
+    underestimate:matched.filter(function(m){ return m.ratio>1.2; }).length};
+}
+
+/* 홈 화면 인지부하 + 리루팅 배지 렌더 */
+function renderSmartAlerts(){
+  var el=document.getElementById('home-smart-alerts');
+  if(!el) return;
+  var alerts=[];
+  var load=checkCognitiveLoad(TODAY);
+  if(load) alerts.push('<div style="background:'+(load.level==='danger'?'rgba(239,68,68,.1)':'rgba(245,158,11,.1)')+';border:1px solid '+(load.level==='danger'?'var(--rose)':'var(--amber)')+';border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="openReroute()">'+load.msg+'</div>');
+  var patterns=detectDelayPatterns();
+  patterns.forEach(function(p){ alerts.push('<div style="background:rgba(123,116,248,.1);border:1px solid var(--indigo);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;">📉 '+p.slot+' 시간대 달성률 '+p.pct+'% — 이 시간대에 미루는 경향이 있어요</div>'); });
+  var acc=getTimeAccuracy();
+  if(acc&&acc.count>=5) alerts.push('<div style="background:rgba(22,163,74,.1);border:1px solid var(--green);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;">⏱ 평균 시간 정확도 '+acc.avgRatio+'% ('+acc.count+'회 기준)</div>');
+  el.style.display=alerts.length>0?'flex':'none';
+  el.innerHTML=alerts.join('');
 }
 
 /* ══════════════════════════════════════════
