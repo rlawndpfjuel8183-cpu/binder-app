@@ -1185,11 +1185,31 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         </select>
         <div class="day-chips" id="goal-recur-days" style="margin-top:8px;"></div>
       </div>
+      <!-- 예상 소요 시간 -->
+      <div id="goal-esttime-row">
+        <label class="lbl">예상 소요 시간</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" class="inp" id="goal-est-min" placeholder="분" min="5" max="480" step="5" style="width:90px;"/>
+          <span style="font-size:12px;color:var(--muted);" id="goal-est-display"></span>
+          <button class="btn btn-ghost btn-sm" onclick="aiEstimateTime()" title="AI 시간 추정">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </button>
+        </div>
+      </div>
       <!-- 하위 항목 추가 -->
       <div id="goal-add-child-row" style="display:none;">
         <div class="divider"><hr/><span>하위 항목</span><hr/></div>
-        <button class="btn btn-secondary" style="width:100%;" id="goal-add-child-btn" onclick="addChildGoal()">
-          <i class="fa-solid fa-plus"></i> 하위 항목 추가
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="aiBreakdownGoal()">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> AI로 쪼개기
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openPastGoalImport()">
+            <i class="fa-solid fa-clock-rotate-left"></i> 이전 골 불러오기
+          </button>
+        </div>
+        <div id="ai-suggest-result" style="margin-bottom:8px;"></div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;border:1px dashed var(--bdr2);" onclick="addChildGoal()">
+          <i class="fa-solid fa-plus"></i> 직접 추가
         </button>
         <div id="goal-children-list" style="margin-top:8px;display:flex;flex-direction:column;gap:4px;"></div>
       </div>
@@ -1197,6 +1217,20 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="saveGoal()">
         <i class="fa-solid fa-check"></i> 저장
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PAST GOAL IMPORT MODAL ═══ -->
+<div class="modal-overlay" id="modal-past-goal" onclick="closeModal('modal-past-goal',event)">
+  <div class="modal-box" style="max-height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📁 이전 골에서 불러오기</div>
+    <input type="text" class="inp" id="past-goal-search" placeholder="골 이름 검색..." oninput="renderPastGoalList()" style="margin-bottom:10px;"/>
+    <div id="past-goal-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-past-goal')">취소</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="importPastGoalTasks()"><i class="fa-solid fa-file-import"></i> 가져오기</button>
     </div>
   </div>
 </div>
@@ -2380,6 +2414,10 @@ function openGoalAdd(parentId, type){
   document.getElementById('goal-edit-type').value=_editGoalType;
   document.getElementById('goal-edit-notes').value='';
   document.getElementById('goal-edit-deadline').value='';
+  document.getElementById('goal-est-min').value='';
+  document.getElementById('goal-est-display').textContent='';
+  document.getElementById('ai-suggest-result').innerHTML='';
+  document.getElementById('goal-children-list').innerHTML='';
   setGoalStatus('backlog'); setGoalPriority(2);
   buildColorPicker('goal-color-picker', _editGoalColor);
   updateGoalTypeUI();
@@ -2399,9 +2437,13 @@ function openGoalEdit(id, isTop){
   document.getElementById('goal-edit-type').value=g.type;
   document.getElementById('goal-edit-notes').value=g.notes||'';
   document.getElementById('goal-edit-deadline').value=g.deadline||'';
+  document.getElementById('goal-est-min').value=g.est_min||'';
+  document.getElementById('goal-est-display').textContent=g.est_min?formatEstMin(g.est_min):'';
+  document.getElementById('ai-suggest-result').innerHTML='';
   setGoalStatus(g.status||'backlog'); setGoalPriority(g.priority||2);
   buildColorPicker('goal-color-picker', _editGoalColor);
   updateGoalTypeUI();
+  updateGoalChildrenList();
   openDrawer();
 }
 
@@ -2489,11 +2531,203 @@ function renderStagesList(){
 }
 function removeStage(i){ _editStages.splice(i,1); renderStagesList(); }
 
+function formatEstMin(m){
+  if(!m) return '';
+  var h=Math.floor(m/60), min=m%60;
+  return (h>0?h+'시간 ':'')+(min>0?min+'분':'');
+}
+
+document.getElementById('goal-est-min').addEventListener('input',function(){
+  var v=parseInt(this.value);
+  document.getElementById('goal-est-display').textContent=v>0?formatEstMin(v):'';
+});
+
 function addChildGoal(){
+  if(!_editGoalId){ saveGoalSilent(); }
   var type=document.getElementById('goal-edit-type').value;
-  var childType = type==='category'?'sub':type==='sub'?'project':type==='project'?'short_job':'short_job';
+  var childType=type==='category'?'sub':type==='sub'?'project':'short_job';
   closeDrawer();
   setTimeout(function(){ openGoalAdd(_editGoalId, childType); },200);
+}
+
+function saveGoalSilent(){
+  var title=document.getElementById('goal-edit-title').value.trim();
+  if(!title) return;
+  var type=document.getElementById('goal-edit-type').value;
+  var g={
+    id:_editGoalId||genId(),
+    parent_id:_editGoalParentId||null,
+    type:type, title:title, status:_editGoalStatus,
+    priority:_editGoalPriority, color:_editGoalColor,
+    deadline:document.getElementById('goal-edit-deadline').value||null,
+    notes:document.getElementById('goal-edit-notes').value||'',
+    stages:_editStages,
+    est_min:parseInt(document.getElementById('goal-est-min').value)||null,
+    created_at:new Date().toISOString()
+  };
+  if(!_editGoalId) _editGoalId=g.id;
+  upsertGoal(g);
+  updateGoalTypeUI();
+}
+
+function updateGoalChildrenList(){
+  var listEl=document.getElementById('goal-children-list');
+  if(!listEl||!_editGoalId) return;
+  var children=getGoals().filter(function(g){ return g.parent_id===_editGoalId; });
+  if(!children.length){ listEl.innerHTML=''; return; }
+  listEl.innerHTML=children.map(function(c){
+    var est=c.est_min?'<span style="font-size:10px;color:var(--muted);background:var(--s3);padding:1px 6px;border-radius:99px;flex-shrink:0;">'+formatEstMin(c.est_min)+'</span>':'';
+    var done=c.status==='done';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:8px;cursor:pointer;" onclick="closeDrawer();setTimeout(function(){openGoalEdit(\''+c.id+'\');},200)">'
+      +'<i class="fa-solid fa-'+(done?'circle-check':'circle')+'" style="color:'+(done?'var(--green)':'var(--muted)')+';font-size:14px;"></i>'
+      +'<span style="flex:1;font-size:13px;'+(done?'text-decoration:line-through;color:var(--muted)':'')+'">'+escHtml(c.title)+'</span>'
+      +est+'</div>';
+  }).join('');
+}
+
+/* ── AI 예상 시간 추정 ── */
+async function aiEstimateTime(){
+  var title=document.getElementById('goal-edit-title').value.trim();
+  if(!title){ showToast('제목을 먼저 입력하세요'); return; }
+  var s=getSettings(); if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
+  var btn=event.currentTarget;
+  btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
+  try{
+    var res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'x-api-key':s.api_key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',max_tokens:20,
+        system:'Return ONLY an integer: estimated minutes to complete this task. Nothing else.',
+        messages:[{role:'user',content:'Task: "'+title+'"'}]
+      })
+    });
+    var data=await res.json();
+    var mins=parseInt(data.content[0].text.trim());
+    if(mins>0){
+      document.getElementById('goal-est-min').value=mins;
+      document.getElementById('goal-est-display').textContent=formatEstMin(mins);
+    }
+  }catch(e){ showToast('AI 오류'); }
+  btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i>';
+}
+
+/* ── AI 골 쪼개기 ── */
+async function aiBreakdownGoal(){
+  var title=document.getElementById('goal-edit-title').value.trim();
+  if(!title){ showToast('제목을 먼저 입력하세요'); return; }
+  var s=getSettings(); if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
+  if(!_editGoalId) saveGoalSilent();
+  var resultEl=document.getElementById('ai-suggest-result');
+  resultEl.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> AI가 세부 작업 생성 중...</div>';
+  try{
+    var res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'x-api-key':s.api_key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',max_tokens:900,
+        system:'You are a task breakdown assistant. Return ONLY a raw JSON array (no markdown, no code blocks). Each item: {"title":"한국어 작업명","est_min":number}',
+        messages:[{role:'user',content:'골: "'+title+'"\n실행 가능한 세부 작업 5~8개로 쪼개줘. 각 작업 예상 소요시간(분) 포함.'}]
+      })
+    });
+    var data=await res.json();
+    var text=data.content[0].text.trim().replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    renderAISuggestions(JSON.parse(text));
+  }catch(e){
+    resultEl.innerHTML='<div style="color:var(--rose);font-size:12px;padding:8px 0;">오류가 발생했습니다. 다시 시도해주세요.</div>';
+  }
+}
+
+function renderAISuggestions(tasks){
+  window._aiSuggestedTasks=tasks;
+  var resultEl=document.getElementById('ai-suggest-result');
+  if(!tasks||!tasks.length){ resultEl.innerHTML=''; return; }
+  resultEl.innerHTML='<div style="background:var(--s2);border-radius:10px;padding:10px;margin-top:4px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.04em;">AI 제안 — 선택 후 추가</div>'
+    +tasks.map(function(t,i){
+      var timeStr=formatEstMin(t.est_min||30);
+      return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--bdr);">'
+        +'<input type="checkbox" data-ai-idx="'+i+'" checked style="accent-color:var(--indigo);width:15px;height:15px;flex-shrink:0;"/>'
+        +'<span style="flex:1;">'+escHtml(t.title)+'</span>'
+        +'<span style="color:var(--muted);font-size:10px;background:var(--s3);padding:2px 6px;border-radius:99px;white-space:nowrap;">'+timeStr+'</span>'
+        +'</label>';
+    }).join('')
+    +'<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="addAISuggestedTasks()">'
+    +'<i class="fa-solid fa-plus"></i> 선택 항목 추가</button></div>';
+}
+
+function addAISuggestedTasks(){
+  if(!_editGoalId){ showToast('골을 먼저 저장하세요'); return; }
+  var checks=document.querySelectorAll('[data-ai-idx]:checked');
+  if(!checks.length){ showToast('항목을 선택하세요'); return; }
+  var goals=getGoals();
+  checks.forEach(function(cb){
+    var task=window._aiSuggestedTasks[parseInt(cb.dataset.aiIdx)];
+    var newG={id:genId(),parent_id:_editGoalId,title:task.title,type:'short_job',
+      status:'active',priority:_editGoalPriority,color:_editGoalColor,
+      est_min:task.est_min||30,created_at:new Date().toISOString()};
+    goals.push(newG);
+    Promise.resolve(supa.from('goals').upsert(newG)).catch(function(){});
+  });
+  saveGoals(goals);
+  showToast(checks.length+'개 추가됐습니다!');
+  document.getElementById('ai-suggest-result').innerHTML='';
+  updateGoalChildrenList();
+  renderGoals(); renderHome();
+}
+
+/* ── 이전 골 불러오기 ── */
+function openPastGoalImport(){
+  if(!_editGoalId) saveGoalSilent();
+  document.getElementById('past-goal-search').value='';
+  renderPastGoalList();
+  document.getElementById('modal-past-goal').classList.add('open');
+}
+
+function renderPastGoalList(){
+  var q=document.getElementById('past-goal-search').value.toLowerCase();
+  var allGoals=getGoals();
+  // 하위 항목 있는 골만 (children이 있는 부모들)
+  var parents=allGoals.filter(function(g){
+    var hasChildren=allGoals.some(function(c){ return c.parent_id===g.id; });
+    return hasChildren && (!q || g.title.toLowerCase().indexOf(q)>=0);
+  });
+  var el=document.getElementById('past-goal-list');
+  if(!parents.length){
+    el.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:24px;">검색 결과가 없습니다.</div>';
+    return;
+  }
+  el.innerHTML=parents.map(function(p){
+    var children=allGoals.filter(function(c){ return c.parent_id===p.id; });
+    return '<div style="border:1px solid var(--bdr);border-radius:10px;padding:10px;">'
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text);">'+escHtml(p.title)+'</div>'
+      +children.map(function(c){
+        var est=c.est_min?'<span style="font-size:10px;color:var(--muted);background:var(--s3);padding:1px 6px;border-radius:99px;">'+formatEstMin(c.est_min)+'</span>':'';
+        return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;">'
+          +'<input type="checkbox" data-import-id="'+c.id+'" data-import-title="'+escHtml(c.title)+'" data-import-estmin="'+(c.est_min||30)+'" style="accent-color:var(--indigo);width:15px;height:15px;flex-shrink:0;"/>'
+          +'<span style="flex:1;">'+escHtml(c.title)+'</span>'+est+'</label>';
+      }).join('')
+      +'</div>';
+  }).join('');
+}
+
+function importPastGoalTasks(){
+  if(!_editGoalId){ showToast('골을 먼저 저장하세요'); return; }
+  var checks=document.querySelectorAll('[data-import-id]:checked');
+  if(!checks.length){ showToast('항목을 선택하세요'); return; }
+  var goals=getGoals();
+  checks.forEach(function(cb){
+    var newG={id:genId(),parent_id:_editGoalId,title:cb.dataset.importTitle,
+      type:'short_job',status:'active',priority:_editGoalPriority,color:_editGoalColor,
+      est_min:parseInt(cb.dataset.importEstmin)||30,created_at:new Date().toISOString()};
+    goals.push(newG);
+    Promise.resolve(supa.from('goals').upsert(newG)).catch(function(){});
+  });
+  saveGoals(goals);
+  closeModal('modal-past-goal');
+  showToast(checks.length+'개를 가져왔습니다!');
+  updateGoalChildrenList();
+  renderGoals(); renderHome();
 }
 
 function saveGoal(){
@@ -2511,6 +2745,7 @@ function saveGoal(){
     deadline: document.getElementById('goal-edit-deadline').value||null,
     notes: document.getElementById('goal-edit-notes').value||'',
     stages: _editStages,
+    est_min: parseInt(document.getElementById('goal-est-min').value)||null,
     created_at: new Date().toISOString()
   };
   upsertGoal(g);
