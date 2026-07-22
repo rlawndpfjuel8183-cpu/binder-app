@@ -35,6 +35,23 @@
 @media(min-width:768px){:root{--sb-w:64px;}}
 @media(min-width:1280px){:root{--sb-w:220px;}}
 
+/* ── DARK MODE ───────────────────────────── */
+[data-theme="dark"]{
+  --bg:#16141C;
+  --s1:#1E1C26;
+  --s2:#252330;
+  --s3:#2D2B38;
+  --bdr:rgba(255,255,255,.08);
+  --bdr2:rgba(255,255,255,.14);
+  --text:#F0EDE8;
+  --muted:rgba(240,237,232,.45);
+  --muted2:rgba(240,237,232,.28);
+  --indigo:#7B74F8;
+  --indigo-light:rgba(123,116,248,.15);
+  --shadow:0 1px 4px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  --shadow-md:0 2px 8px rgba(0,0,0,.35),0 8px 28px rgba(0,0,0,.3);
+}
+
 /* ── RESET ───────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;}
@@ -369,7 +386,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
   min-width:0;
 }
 .tl-right{
-  width:260px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;
+  width:220px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;
   background:var(--bg);
 }
 @media(max-width:600px){
@@ -721,8 +738,8 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div class="topbar-title" id="home-date-title">오늘</div>
         <div style="font-size:11px;color:var(--muted);margin-top:1px;" id="home-date-sub"></div>
       </div>
-      <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="openSettings()">
-        <i class="fa-solid fa-gear"></i>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="toggleDarkMode()" id="dark-toggle" title="다크모드 전환">
+        <i class="fa-solid fa-moon"></i>
       </button>
     </div>
     <div class="view-body">
@@ -751,19 +768,22 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 
       <!-- AI 빠른 추가 -->
       <div class="home-ai-box" style="margin-bottom:16px;">
-        <div class="section-header" style="margin-bottom:10px;">
+        <div class="section-header" style="margin-bottom:0;cursor:pointer;" onclick="toggleAIBox()">
           <span class="section-title">✨ AI 일정 추가</span>
+          <i class="fa-solid fa-chevron-down" id="ai-box-chevron" style="font-size:11px;color:var(--muted);transition:transform .2s;transform:rotate(-90deg);"></i>
         </div>
-        <textarea id="ai-quick-input" class="home-ai-area"
-          placeholder="텍스트, 문자 내용, 일정 등 붙여넣기 하세요.&#10;예) &quot;내일 오전 10시 팀 미팅, 2시간&quot;"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="btn btn-primary" style="flex:1;" onclick="aiParseText()">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> AI로 파싱
-          </button>
-          <label class="btn btn-secondary" style="cursor:pointer;" title="사진으로 일정 인식">
-            <i class="fa-solid fa-camera"></i>
-            <input type="file" accept="image/*" style="display:none;" onchange="aiParseImage(this)"/>
-          </label>
+        <div id="ai-box-body" style="display:none;margin-top:10px;">
+          <textarea id="ai-quick-input" class="home-ai-area"
+            placeholder="텍스트, 문자 내용, 일정 등 붙여넣기 하세요.&#10;예) &quot;내일 오전 10시 팀 미팅, 2시간&quot;"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-primary" style="flex:1;" onclick="aiParseText()">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> AI로 파싱
+            </button>
+            <label class="btn btn-secondary" style="cursor:pointer;" title="사진으로 일정 인식">
+              <i class="fa-solid fa-camera"></i>
+              <input type="file" accept="image/*" style="display:none;" onchange="aiParseImage(this)"/>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -971,7 +991,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <div style="margin-bottom:16px;">
         <div class="section-header"><span class="section-title">📊 이번 주 시간 사용</span></div>
         <div class="card" style="padding:16px;">
-          <svg id="week-chart" width="100%" height="140" viewBox="0 0 300 140"></svg>
+          <svg id="week-chart" width="100%" height="140" viewBox="0 0 300 140" preserveAspectRatio="none"></svg>
           <div style="display:flex;gap:14px;margin-top:6px;justify-content:center;">
             <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);">
               <div style="width:10px;height:10px;border-radius:3px;background:#A5A0F0;"></div> 계획
@@ -1461,6 +1481,30 @@ document.querySelectorAll('.sb-item').forEach(function(b){
 /* ══════════════════════════════════════════
    HOME VIEW
 ══════════════════════════════════════════ */
+function toggleDarkMode(){
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var next=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('b2_theme',next);
+  var btn=document.getElementById('dark-toggle');
+  if(btn) btn.innerHTML='<i class="fa-solid fa-'+(next==='dark'?'sun':'moon')+'"></i>';
+}
+function applyTheme(){
+  var t=localStorage.getItem('b2_theme')||'light';
+  document.documentElement.setAttribute('data-theme',t);
+  var btn=document.getElementById('dark-toggle');
+  if(btn) btn.innerHTML='<i class="fa-solid fa-'+(t==='dark'?'sun':'moon')+'"></i>';
+}
+
+function toggleAIBox(){
+  var body=document.getElementById('ai-box-body');
+  var chevron=document.getElementById('ai-box-chevron');
+  if(!body) return;
+  var open=body.style.display!=='none';
+  body.style.display=open?'none':'block';
+  if(chevron) chevron.style.transform=open?'rotate(-90deg)':'rotate(0deg)';
+}
+
 function getMIT(){
   var key='mit_'+TODAY;
   try{ return JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){ return {}; }
@@ -1482,11 +1526,17 @@ function renderMIT(){
     +' value="'+escHtml(mit.text||'')+'"'
     +' oninput="onMITInput(this.value)"'
     +' onkeydown="if(event.key===\'Enter\')this.blur()"/>'
+    +'<span id="mit-saved" style="font-size:10px;color:var(--indigo);opacity:0;transition:opacity .3s;flex-shrink:0;">저장됨</span>'
     +'</div>'
     +'</div>';
 }
 function onMITInput(val){
   var mit=getMIT(); mit.text=val; saveMIT(mit);
+  clearTimeout(window._mitSaveTimer);
+  window._mitSaveTimer=setTimeout(function(){
+    var el=document.getElementById('mit-saved');
+    if(el){ el.style.opacity='1'; setTimeout(function(){ el.style.opacity='0'; },1200); }
+  },600);
 }
 function toggleMIT(){
   var mit=getMIT(); mit.done=!mit.done; saveMIT(mit); renderMIT();
@@ -1513,8 +1563,11 @@ function renderHome(){
   document.getElementById('avail-used').textContent='계획됨 '+minToHM(av.usedPlan);
   document.getElementById('avail-remain').textContent='남은 자유 '+minToHM(av.free);
 
-  // 빈 시간대 슬롯
-  var slots=getFreeSlots(TODAY);
+  // 빈 시간대 슬롯 (현재 시각 이후만)
+  var nowM=new Date().getHours()*60+new Date().getMinutes();
+  var slots=getFreeSlots(TODAY).filter(function(sl){ return sl.e>nowM; })
+    .map(function(sl){ return {s:Math.max(sl.s,nowM),e:sl.e}; })
+    .filter(function(sl){ return sl.e-sl.s>=15; });
   var slotsEl=document.getElementById('avail-slots');
   var slotsSec=document.getElementById('avail-slots-section');
   if(slots.length>0){
@@ -1812,7 +1865,11 @@ function renderTimeline(){
   var palette = document.getElementById('tl-goal-palette');
   var activeGoals = getGoals().filter(function(g){ return g.status==='active'; });
   if(activeGoals.length === 0){
-    palette.innerHTML = '<div style="padding:12px 8px;font-size:12px;color:var(--muted2);text-align:center;">활성 골이 없습니다.<br/>골 탭에서 추가하세요!</div>';
+    palette.innerHTML = '<div style="padding:14px 8px;font-size:12px;color:var(--muted2);text-align:center;line-height:1.6;">'
+      +'<i class="fa-solid fa-bullseye" style="font-size:20px;opacity:.3;display:block;margin-bottom:8px;"></i>'
+      +'활성 골이 없습니다.<br/>'
+      +'<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="openGoalAdd(null,\'short_job\')">'
+      +'<i class="fa-solid fa-plus"></i> 골 추가</button></div>';
   } else {
     palette.innerHTML = '';
     activeGoals.forEach(function(g){
@@ -2097,7 +2154,7 @@ function renderCalMonth(){
       }).join('')+planEv.slice(0,1).map(function(p){
         return '<div class="ac-event-pill" style="background:'+(p.color||'#5B52E8')+';">'+escHtml(p.title)+'</div>';
       }).join('');
-      html+='<div class="ac-cell" onclick="tlDate=\''+ds+'\';switchView(\'timeline\')">'
+      html+='<div class="ac-cell" onclick="calDailyDate=new Date(\''+ds+'T00:00:00\');switchCalTab(\'daily\',document.querySelector(\'[data-caltab=daily]\'))">'
         +'<div class="'+numClass+'">'+cell.date.getDate()+'</div>'
         +evHtml+'</div>';
     }
@@ -2157,13 +2214,15 @@ function renderAnalytics(){
   var focus=tracks.reduce(function(a,t){ return a+timeToMin(t.end_time)-timeToMin(t.start_time); },0);
   document.getElementById('stat-focus').textContent=minToHM(focus);
 
-  // 연속 기록일 (오늘 포함 트래커 있는 날)
-  var streak=0, d=new Date();
+  // 연속 기록일 (트래커 기록 있는 날 연속 카운트, 오늘 미기록이면 어제부터)
+  var streak=0, sd=new Date();
+  var todayTracks=getTracks(TODAY);
+  if(!todayTracks.length) sd.setDate(sd.getDate()-1);
   for(var i=0;i<30;i++){
-    var ds=d.toISOString().slice(0,10);
-    if(getTracks(ds).length>0||getPlans(ds).length>0) streak++;
-    else if(i>0) break;
-    d.setDate(d.getDate()-1);
+    var sds=sd.toISOString().slice(0,10);
+    if(getTracks(sds).length>0) streak++;
+    else break;
+    sd.setDate(sd.getDate()-1);
   }
   document.getElementById('stat-streak').textContent=streak;
 
@@ -2784,6 +2843,7 @@ function scheduleNotifications(){
    INIT
 ══════════════════════════════════════════ */
 async function init(){
+  applyTheme();
   // Supabase에서 데이터 로드 (백그라운드)
   loadFromSupabase().then(function(){
     renderHome();
