@@ -2915,8 +2915,21 @@ function openGoalEdit(id, isTop){
 
 function markGoalDone(){
   if(!_editGoalId) return;
+  var title=document.getElementById('goal-edit-title').value.trim();
+  if(!title){ showToast('제목을 입력하세요'); return; }
   setGoalStatus('done');
-  saveGoal();
+  var type=document.getElementById('goal-edit-type').value;
+  var g={
+    id:_editGoalId, parent_id:_editGoalParentId||null, type:type, title:title,
+    status:'done', priority:_editGoalPriority, color:_editGoalColor,
+    deadline:document.getElementById('goal-edit-deadline').value||null,
+    notes:document.getElementById('goal-edit-notes').value||'',
+    stages:_editStages, est_min:parseInt(document.getElementById('goal-est-min').value)||null,
+    created_at:new Date().toISOString()
+  };
+  upsertGoal(g);
+  closeDrawer();
+  renderGoals(); renderHome();
   showToast('🎉 골 완료! 수고했어요!');
 }
 
@@ -3105,7 +3118,7 @@ function scheduleChildToToday(childId, title, estMin){
 async function aiEstimateTime(){
   var title=document.getElementById('goal-edit-title').value.trim();
   if(!title){ showToast('제목을 먼저 입력하세요'); return; }
-  if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
+  if(!getApiKey()){ showToast('설정에서 API 키를 입력해주세요'); return; }
   var btn=event.currentTarget;
   btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
   try{
@@ -3163,7 +3176,7 @@ function renderTimeAccuracyPanel(){
 async function aiBreakdownGoal(){
   var title=document.getElementById('goal-edit-title').value.trim();
   if(!title){ showToast('제목을 먼저 입력하세요'); return; }
-  if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
+  if(!getApiKey()){ showToast('설정에서 API 키를 입력해주세요'); return; }
   if(!_editGoalId) saveGoalSilent();
   var deadline=document.getElementById('goal-edit-deadline').value||'';
   var existingChildren=getGoals().filter(function(g){ return g.parent_id===_editGoalId; });
@@ -3281,7 +3294,6 @@ function importPastGoalTasks(){
       type:'short_job',status:'active',priority:_editGoalPriority,color:_editGoalColor,
       est_min:parseInt(cb.dataset.importEstmin)||30,created_at:new Date().toISOString()};
     goals.push(newG);
-    Promise.resolve(supa.from('goals').upsert(newG)).catch(function(){});
   });
   saveGoals(goals);
   closeModal('modal-past-goal');
@@ -4781,12 +4793,10 @@ function applyDNATemplate(id){
   var parentGoal={id:genId(),parent_id:null,type:tpl.type||'project',title:tpl.name,status:'backlog',
     priority:2,color:tpl.color||'#5B52E8',est_min:tpl.est_min,created_at:new Date().toISOString()};
   upsertGoal(parentGoal);
-  Promise.resolve(supa.from('goals').upsert(parentGoal)).catch(function(){});
   tpl.children.forEach(function(c){
     var child={id:genId(),parent_id:parentGoal.id,type:c.type||'short_job',title:c.title,status:'backlog',
       priority:2,color:tpl.color||'#5B52E8',est_min:c.est_min,created_at:new Date().toISOString()};
     upsertGoal(child);
-    Promise.resolve(supa.from('goals').upsert(child)).catch(function(){});
   });
   closeModal('modal-dna');
   switchView('goal');
@@ -4946,8 +4956,8 @@ function _renderTlDelayBanner(){
   banner.style.cssText = 'margin:0 0 10px;padding:10px 14px;background:rgba(239,68,68,.08);border:1.5px solid #ef4444;border-radius:12px;font-size:12px;color:#dc2626;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;';
   banner.innerHTML = '<span>'+msgs.join(' · ')+'</span>'
     +'<button onclick="openReroute()" style="flex-shrink:0;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">리루팅 →</button>';
-  var header = document.getElementById('tl-date-label');
-  if(header && header.parentNode) header.parentNode.insertBefore(banner, header.parentNode.querySelector('#tl-grid') || header.nextSibling);
+  var scrollWrap = document.getElementById('tl-scroll');
+  if(scrollWrap && scrollWrap.parentNode) scrollWrap.parentNode.insertBefore(banner, scrollWrap);
 }
 
 /* ══════════════════════════════════════════
