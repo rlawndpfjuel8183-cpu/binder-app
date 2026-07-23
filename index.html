@@ -1124,9 +1124,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </div>
       <div class="divider"><hr/><span>AI 연동</span><hr/></div>
       <div>
-        <label class="lbl">Claude API Key</label>
-        <input type="password" class="inp" id="set-apikey" placeholder="sk-ant-..."/>
-        <p style="font-size:11px;color:var(--muted);margin-top:5px;">키는 기기에만 저장됩니다. <a href="https://console.anthropic.com" target="_blank" style="color:var(--indigo);">발급받기 →</a></p>
+        <label class="lbl">Google Gemini API Key</label>
+        <input type="password" class="inp" id="set-apikey" placeholder="AIza..."/>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">키는 기기에만 저장됩니다. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--indigo);">발급받기 →</a></p>
       </div>
       <div class="divider"><hr/><span>알림</span><hr/></div>
       <button class="btn btn-secondary" onclick="setupPushNotifications()">
@@ -2743,21 +2743,12 @@ function updateGoalChildrenList(){
 async function aiEstimateTime(){
   var title=document.getElementById('goal-edit-title').value.trim();
   if(!title){ showToast('제목을 먼저 입력하세요'); return; }
-  var s=getSettings(); if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
+  if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
   var btn=event.currentTarget;
   btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
   try{
-    var res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'x-api-key':s.api_key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',max_tokens:20,
-        system:'Return ONLY an integer: estimated minutes to complete this task. Nothing else.',
-        messages:[{role:'user',content:'Task: "'+title+'"'}]
-      })
-    });
-    var data=await res.json();
-    var mins=parseInt(data.content[0].text.trim());
+    var text=await callGemini('Return ONLY an integer: estimated minutes to complete this task. Nothing else.','Task: "'+title+'"');
+    var mins=parseInt((text||'').trim());
     if(mins>0){
       document.getElementById('goal-est-min').value=mins;
       document.getElementById('goal-est-display').textContent=formatEstMin(mins);
@@ -2770,22 +2761,13 @@ async function aiEstimateTime(){
 async function aiBreakdownGoal(){
   var title=document.getElementById('goal-edit-title').value.trim();
   if(!title){ showToast('제목을 먼저 입력하세요'); return; }
-  var s=getSettings(); if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
+  if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
   if(!_editGoalId) saveGoalSilent();
   var resultEl=document.getElementById('ai-suggest-result');
   resultEl.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> AI가 세부 작업 생성 중...</div>';
   try{
-    var res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'x-api-key':s.api_key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',max_tokens:900,
-        system:'You are a task breakdown assistant. Return ONLY a raw JSON array (no markdown, no code blocks). Each item: {"title":"한국어 작업명","est_min":number}',
-        messages:[{role:'user',content:'골: "'+title+'"\n실행 가능한 세부 작업 5~8개로 쪼개줘. 각 작업 예상 소요시간(분) 포함.'}]
-      })
-    });
-    var data=await res.json();
-    var text=data.content[0].text.trim().replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    var raw=await callGemini('You are a task breakdown assistant. Return ONLY a raw JSON array (no markdown, no code blocks). Each item: {"title":"한국어 작업명","est_min":number}','골: "'+title+'"\n실행 가능한 세부 작업 5~8개로 쪼개줘. 각 작업 예상 소요시간(분) 포함.');
+    var text=(raw||'').trim().replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
     renderAISuggestions(JSON.parse(text));
   }catch(e){
     resultEl.innerHTML='<div style="color:var(--rose);font-size:12px;padding:8px 0;">오류가 발생했습니다. 다시 시도해주세요.</div>';
@@ -3060,28 +3042,22 @@ selectColor=function(containerId, color){
 ══════════════════════════════════════════ */
 function getApiKey(){ return (getSettings().api_key||'').trim(); }
 
-async function callClaude(system, user, onStream){
+async function callGemini(system, user){
   var key=getApiKey();
-  if(!key){ openSettings(); showToast('API Key를 먼저 설정하세요'); return null; }
-  var res=await fetch('https://api.anthropic.com/v1/messages',{
+  if(!key){ openSettings(); showToast('Gemini API Key를 먼저 설정하세요'); return null; }
+  var prompt=system+'\n\n'+user;
+  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+key,{
     method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key':key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',
-      max_tokens:1024,
-      system:system,
-      messages:[{role:'user',content:user}]
-    })
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
   });
   if(!res.ok){ showToast('AI 오류: '+res.status); return null; }
   var data=await res.json();
-  return data.content&&data.content[0]?data.content[0].text:null;
+  return data.candidates&&data.candidates[0]?data.candidates[0].content.parts[0].text:null;
 }
+
+// 하위 호환성
+var callClaude = callGemini;
 
 /* 텍스트 → 일정 파싱 */
 var _aiParsedBlocks=[];
@@ -3112,19 +3088,16 @@ async function aiParseImage(input){
     var b64=e.target.result.split(',')[1];
     var mediaType=file.type;
     try{
-      var res=await fetch('https://api.anthropic.com/v1/messages',{
+      var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+key,{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({
-          model:'claude-haiku-4-5-20251001', max_tokens:1024,
-          messages:[{role:'user',content:[
-            {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
-            {type:'text',text:'이 이미지에서 일정/이벤트 정보를 추출해 JSON 배열로만 반환하세요. 형식: [{"title":"...","start_time":"HH:MM","end_time":"HH:MM"}]. 오늘은 '+TODAY+'입니다.'}
-          ]}]
-        })
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts:[
+          {inline_data:{mime_type:mediaType,data:b64}},
+          {text:'이 이미지에서 일정/이벤트 정보를 추출해 JSON 배열로만 반환하세요. 형식: [{"title":"...","start_time":"HH:MM","end_time":"HH:MM"}]. 오늘은 '+TODAY+'입니다.'}
+        ]}]})
       });
       var data=await res.json();
-      var text=data.content&&data.content[0]?data.content[0].text:'';
+      var text=data.candidates&&data.candidates[0]?data.candidates[0].content.parts[0].text:'';
       var json=text.match(/\[[\s\S]*\]/);
       if(!json) throw new Error();
       _aiParsedBlocks=JSON.parse(json[0]);
