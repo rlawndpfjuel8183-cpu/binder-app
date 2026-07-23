@@ -3763,38 +3763,115 @@ async function _jarvisProcess(cmd){
   }
   var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   var sys='당신은 바인더 앱의 AI 어시스턴트 자비스입니다. 한국어로 짧고 명확하게 답변하세요. 오늘은 '+today+'입니다. '
-    +'사용자가 일정/골 추가를 요청하면 JSON으로 응답하세요: {"action":"add_plan","title":"...","date":"YYYY-MM-DD","start":"HH:MM","end":"HH:MM"} 또는 {"action":"add_goal","title":"..."}. '
-    +'그 외 질문은 {"action":"reply","text":"..."}으로 응답하세요. JSON만 출력하세요.';
+    +'사용자가 일정 추가를 요청하면: {"action":"add_plan","title":"...","date":"YYYY-MM-DD","start":"HH:MM","duration_known":false} '
+    +'단, 사용자가 소요시간을 명시한 경우(예: "1시간짜리", "30분") duration_known:true로 하고 "end":"HH:MM"도 포함하세요. '
+    +'골 추가: {"action":"add_goal","title":"..."}. '
+    +'그 외: {"action":"reply","text":"..."}. JSON만 출력하세요.';
   var res=await callGemini(sys, cmd);
   if(!res){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); return; }
   try{
     var j=JSON.parse(res.trim().replace(/```json|```/g,'').trim());
     if(j.action==='add_plan'){
-      var plan={id:'p'+Date.now(),title:j.title,date:j.date||(new Date().toISOString().slice(0,10)),start:j.start||'09:00',end:j.end||'10:00',done:false};
-      var plans=JSON.parse(localStorage.getItem('b2_plans')||'[]');
-      plans.push(plan); localStorage.setItem('b2_plans',JSON.stringify(plans));
-      var reply='"'+j.title+'" 일정을 추가했습니다';
-      showVoiceOverlay('done', reply);
-      _jarvisSay(reply);
-      renderHome();
+      if(j.duration_known && j.end){
+        /* 소요시간 이미 알고 있으면 바로 추가 */
+        _jarvisAddPlan(j.title, j.date, j.start, j.end);
+      } else {
+        /* 소요시간 모를 때 → 선택 UI 표시 */
+        _jarvisAskDuration(j.title, j.date, j.start||'09:00');
+      }
     } else if(j.action==='add_goal'){
-      var goal={id:'g'+Date.now(),title:j.title,type:'task',status:'backlog',priority:2,color:'#5B52E8',progress:0,created:Date.now()};
-      var goals=JSON.parse(localStorage.getItem('b2_goals')||'[]');
-      goals.push(goal); localStorage.setItem('b2_goals',JSON.stringify(goals));
+      upsertGoal({id:'g'+Date.now(),title:j.title,type:'task',status:'backlog',priority:2,color:'#5B52E8',progress:0,created:Date.now()});
       var reply2='"'+j.title+'" 골을 추가했습니다';
-      showVoiceOverlay('done', reply2);
-      _jarvisSay(reply2);
-      renderHome();
+      showVoiceOverlay('done', reply2); _jarvisSay(reply2); renderHome();
+      setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },6000);
     } else {
       var reply3=j.text||res;
-      showVoiceOverlay('done', reply3);
-      _jarvisSay(reply3);
+      showVoiceOverlay('done', reply3); _jarvisSay(reply3);
+      setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },8000);
     }
   } catch(e){
-    showVoiceOverlay('done', res);
-    _jarvisSay(res);
+    showVoiceOverlay('done', res); _jarvisSay(res);
+    setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },8000);
   }
-  setTimeout(function(){ hideVoiceOverlay(); _jarvisWaiting=false; setTimeout(_jarvisListen,500); }, 8000);
+}
+
+function _jarvisAskDuration(title, date, start){
+  /* 오버레이 위에 소요시간 선택 UI 오버레이 */
+  var existing=document.getElementById('jarvis-duration-picker');
+  if(existing) existing.remove();
+
+  _jarvisSay('"'+title+'" 소요 시간을 선택해주세요');
+
+  var options=[
+    {label:'30분', min:30},
+    {label:'1시간', min:60},
+    {label:'1시간 30분', min:90},
+    {label:'2시간', min:120},
+    {label:'3시간', min:180},
+    {label:'직접 입력', min:-1}
+  ];
+
+  var picker=document.createElement('div');
+  picker.id='jarvis-duration-picker';
+  picker.style.cssText='position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;';
+
+  var titleEl=document.createElement('div');
+  titleEl.style.cssText='color:#fff;font-size:17px;font-weight:700;text-align:center;padding:0 24px;line-height:1.5;text-shadow:0 0 20px rgba(180,130,255,.8);';
+  titleEl.textContent='"'+title+'" 소요 시간을 선택하세요';
+
+  var grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 24px;width:100%;max-width:360px;box-sizing:border-box;';
+
+  options.forEach(function(opt){
+    var btn=document.createElement('button');
+    btn.textContent=opt.label;
+    btn.style.cssText='padding:14px 8px;border-radius:16px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:14px;font-weight:600;cursor:pointer;backdrop-filter:blur(8px);transition:background .15s;';
+    btn.onmouseover=function(){ this.style.background='rgba(120,80,255,.4)'; };
+    btn.onmouseout=function(){ this.style.background='rgba(255,255,255,.1)'; };
+    btn.onclick=function(){
+      if(opt.min===-1){
+        /* 직접 입력 */
+        var val=prompt('소요 시간을 분 단위로 입력하세요 (예: 45)');
+        var m=parseInt(val);
+        if(!m||m<1){ showToast('올바른 시간을 입력해주세요'); return; }
+        opt.min=m;
+      }
+      picker.remove();
+      var endTime=_addMinutes(start, opt.min);
+      _jarvisAddPlan(title, date, start, endTime);
+    };
+    grid.appendChild(btn);
+  });
+
+  var cancelBtn=document.createElement('button');
+  cancelBtn.textContent='취소';
+  cancelBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer;margin-top:4px;';
+  cancelBtn.onclick=function(){ picker.remove(); hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); };
+
+  picker.appendChild(titleEl);
+  picker.appendChild(grid);
+  picker.appendChild(cancelBtn);
+  document.body.appendChild(picker);
+}
+
+function _addMinutes(timeStr, mins){
+  var parts=timeStr.split(':'), h=parseInt(parts[0]), m=parseInt(parts[1]);
+  var total=h*60+m+mins;
+  total=total%(24*60);
+  var rh=Math.floor(total/60), rm=total%60;
+  return (rh<10?'0':'')+rh+':'+(rm<10?'0':'')+rm;
+}
+
+function _jarvisAddPlan(title, date, start, end){
+  var plan={id:'p'+Date.now(),title:title,
+    date:date||(new Date().toISOString().slice(0,10)),
+    plan_date:date||(new Date().toISOString().slice(0,10)),
+    start_time:start, end_time:end, done:false};
+  upsertPlan(plan);
+  var startFmt=start, endFmt=end;
+  var reply='"'+title+'" '+startFmt+'~'+endFmt+' 일정을 추가했습니다';
+  showVoiceOverlay('done', reply); _jarvisSay(reply); renderHome();
+  setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },6000);
 }
 
 function _jarvisSay(text){
