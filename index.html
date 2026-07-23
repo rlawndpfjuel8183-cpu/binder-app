@@ -227,7 +227,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 #drawer.open #drawer-backdrop{opacity:1;}
 #drawer-panel{
   position:absolute;right:0;top:0;bottom:0;
-  width:100%;max-width:420px;background:var(--s1);
+  width:100%;max-width:520px;background:var(--s1);
   box-shadow:-4px 0 32px rgba(0,0,0,.12);
   transform:translateX(100%);transition:transform .3s cubic-bezier(.32,1,.6,1);
   display:flex;flex-direction:column;overflow:hidden;
@@ -757,36 +757,45 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
     </div>
     <div class="view-body">
 
-      <!-- 빠른 액션 (스크롤 없이 바로 보이게 맨 위) -->
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none;">
-        <button onclick="openMorningBriefing()" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 14px;cursor:pointer;min-width:64px;">
-          <i class="fa-solid fa-sun" style="font-size:20px;color:#F59E0B;"></i>
-          <span style="font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;">아침 브리핑</span>
+      <!-- 빠른 액션: 핵심 3개 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+        <button onclick="openMorningBriefing()" style="display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--s1);border:1px solid var(--bdr);border-radius:16px;padding:14px 8px;cursor:pointer;">
+          <i class="fa-solid fa-sun" style="font-size:22px;color:#F59E0B;"></i>
+          <span style="font-size:11px;font-weight:700;color:var(--text);">아침 브리핑</span>
         </button>
-        <button onclick="openEveningPlanning()" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 14px;cursor:pointer;min-width:64px;">
-          <i class="fa-solid fa-moon" style="font-size:20px;color:var(--indigo);"></i>
-          <span style="font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;">저녁 플래닝</span>
+        <button onclick="openEveningPlanning()" style="display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--s1);border:1px solid var(--bdr);border-radius:16px;padding:14px 8px;cursor:pointer;">
+          <i class="fa-solid fa-moon" style="font-size:22px;color:var(--indigo);"></i>
+          <span style="font-size:11px;font-weight:700;color:var(--text);">저녁 플래닝</span>
         </button>
-        <button onclick="openCarryover()" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 14px;cursor:pointer;min-width:64px;">
-          <i class="fa-solid fa-forward" style="font-size:20px;color:#EF4444;"></i>
-          <span style="font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;">미완료 이월</span>
+        <button onclick="startVoiceCapture()" style="display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--s1);border:1px solid var(--bdr);border-radius:16px;padding:14px 8px;cursor:pointer;">
+          <i class="fa-solid fa-microphone" style="font-size:22px;color:#F59E0B;"></i>
+          <span style="font-size:11px;font-weight:700;color:var(--text);">음성 캡처</span>
         </button>
-        <button onclick="openWeeklyReport()" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 14px;cursor:pointer;min-width:64px;">
-          <i class="fa-solid fa-chart-bar" style="font-size:20px;color:#16A34A;"></i>
-          <span style="font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;">주간 리포트</span>
+      </div>
+      <!-- 추가 액션: 접기/펼치기 -->
+      <div style="margin-bottom:16px;">
+        <button onclick="toggleHomeMore()" id="home-more-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:1px dashed var(--bdr2);border-radius:10px;padding:7px;cursor:pointer;color:var(--muted);font-size:12px;">
+          <i class="fa-solid fa-ellipsis" id="home-more-icon"></i>
+          <span id="home-more-label">더보기</span>
         </button>
-        <button onclick="startVoiceCapture()" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 14px;cursor:pointer;min-width:64px;">
-          <i class="fa-solid fa-microphone" style="font-size:20px;color:#F59E0B;"></i>
-          <span style="font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;">음성 캡처</span>
-        </button>
-        <button onclick="openReroute()" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 14px;cursor:pointer;min-width:64px;">
-          <i class="fa-solid fa-shuffle" style="font-size:20px;color:#EF4444;"></i>
-          <span style="font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;">리루팅</span>
-        </button>
-        <button onclick="openDNAModal()" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 14px;cursor:pointer;min-width:64px;">
-          <i class="fa-solid fa-dna" style="font-size:20px;color:var(--indigo);"></i>
-          <span style="font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;">DNA 템플릿</span>
-        </button>
+        <div id="home-more-panel" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;">
+          <button onclick="openCarryover()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-solid fa-forward" style="font-size:18px;color:#EF4444;"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">미완료 이월</span>
+          </button>
+          <button onclick="openWeeklyReport()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-solid fa-chart-bar" style="font-size:18px;color:#16A34A;"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">주간 리포트</span>
+          </button>
+          <button onclick="openReroute()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-solid fa-shuffle" style="font-size:18px;color:#EF4444;"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">리루팅</span>
+          </button>
+          <button onclick="openDNAModal()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-solid fa-dna" style="font-size:18px;color:var(--indigo);"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">DNA 템플릿</span>
+          </button>
+        </div>
       </div>
 
       <!-- 스마트 알림 -->
@@ -854,11 +863,13 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </button>
     </div>
     <div class="view-body">
-      <!-- 카테고리 필터 탭 -->
-      <div class="goal-category-bar" id="goal-cat-bar">
-        <div class="cat-chip on" data-cat="all" onclick="filterGoalCat('all',this)">
-          전체
-        </div>
+      <!-- 카테고리 + 상태 필터 -->
+      <div class="goal-category-bar" id="goal-cat-bar"></div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;" id="goal-status-bar">
+        <button class="cat-chip on" data-st="active" onclick="filterGoalStatus('active',this)">진행중</button>
+        <button class="cat-chip" data-st="backlog" onclick="filterGoalStatus('backlog',this)">백로그</button>
+        <button class="cat-chip" data-st="done" onclick="filterGoalStatus('done',this)">완료</button>
+        <button class="cat-chip" data-st="all" onclick="filterGoalStatus('all',this)">전체</button>
       </div>
       <!-- 골 목록 -->
       <div id="goal-list"></div>
@@ -1638,7 +1649,7 @@ function getFixedForDate(dateStr){
 }
 
 function timeToMin(t){ if(!t) return 0; var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
-function minToHM(m){ if(m<0)m=0; if(m===0) return '0분'; var h=Math.floor(m/60),mm=m%60; return mm===0?h+'h':h>0?h+'h '+mm+'m':mm+'분'; }
+function minToHM(m){ if(m<0)m=0; var h=Math.floor(m/60),mm=m%60; return mm===0?h+'h':h>0?h+'h '+mm+'m':mm+'m'; }
 function minToTime(m){ m=m%(24*60); var h=Math.floor(m/60),mm=m%60; return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm; }
 
 function calcAvailable(dateStr){
@@ -1906,15 +1917,34 @@ function _renderHomeGoals(){
    GOAL VIEW
 ══════════════════════════════════════════ */
 var activeCatFilter='all';
+var activeStatusFilter='active';
+
 function filterGoalCat(catId, el){
   activeCatFilter=catId;
-  document.querySelectorAll('.cat-chip').forEach(function(c){ c.classList.remove('on'); c.style.background=''; c.style.color=''; c.style.borderColor=''; });
+  document.querySelectorAll('#goal-cat-bar .cat-chip').forEach(function(c){ c.classList.remove('on'); c.style.background=''; c.style.color=''; c.style.borderColor=''; });
   el.classList.add('on');
   if(catId!=='all'){
     var g=getGoals().find(function(x){ return x.id===catId; });
     if(g){ el.style.background=g.color||'#5B52E8'; el.style.borderColor='transparent'; }
   }
   renderGoalList();
+}
+
+function filterGoalStatus(st, el){
+  activeStatusFilter=st;
+  document.querySelectorAll('#goal-status-bar .cat-chip').forEach(function(c){ c.classList.remove('on'); });
+  el.classList.add('on');
+  renderGoalList();
+}
+
+function toggleHomeMore(){
+  var panel=document.getElementById('home-more-panel');
+  var label=document.getElementById('home-more-label');
+  var icon=document.getElementById('home-more-icon');
+  var open=panel.style.display==='grid';
+  panel.style.display=open?'none':'grid';
+  label.textContent=open?'더보기':'접기';
+  icon.className=open?'fa-solid fa-ellipsis':'fa-solid fa-chevron-up';
 }
 
 function renderGoals(){
@@ -1934,20 +1964,27 @@ function renderGoals(){
 }
 
 function renderGoalList(){
-  var goals=getGoals();
-  var cats=goals.filter(function(g){ return g.type==='category'; });
+  var allGoals=getGoals();
+  // 상태 필터 적용 (category는 항상 표시)
+  var goals=activeStatusFilter==='all' ? allGoals : allGoals.filter(function(g){
+    return g.type==='category' || g.status===activeStatusFilter;
+  });
+  var cats=allGoals.filter(function(g){ return g.type==='category'; });
   var el=document.getElementById('goal-list');
 
   var filteredCats=activeCatFilter==='all'?cats:cats.filter(function(c){ return c.id===activeCatFilter; });
-  if(filteredCats.length===0){
+  // 필터된 상태에서 해당 카테고리 하위에 보여줄 골이 있는지 확인
+  var hasContent = filteredCats.some(function(c){
+    return allGoals.some(function(g){ return g.parent_id===c.id && (activeStatusFilter==='all'||g.status===activeStatusFilter); });
+  });
+  var topLevelNonCat = allGoals.filter(function(g){
+    return !g.parent_id && g.type!=='category' && (activeStatusFilter==='all'||g.status===activeStatusFilter);
+  });
+  if(filteredCats.length===0 && topLevelNonCat.length===0){
     el.innerHTML='<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>골이 없습니다.<br/>상단의 "골 추가" 버튼으로 시작하세요!</p></div>';
     return;
   }
 
-  // 버그수정: 대분류 없이 직접 추가된 최상위 골도 표시
-  var topLevelNonCat = goals.filter(function(g){
-    return !g.parent_id && g.type !== 'category';
-  });
   var filteredTopNonCat = activeCatFilter==='all' ? topLevelNonCat : [];
 
   function renderGoalCard(g, isTopLevel){
@@ -2154,11 +2191,35 @@ function renderTimeline(){
     grid.appendChild(makeTlBlock(f.title, f.start_time, f.end_time, f.color||'#94a3b8', wake, true, null));
   });
 
-  // ── 플랜 블록 ──
-  getPlans(tlDate).forEach(function(p){
+  // ── 플랜 블록 (겹침 감지 → 좌우 분할) ──
+  var plans = getPlans(tlDate);
+  // 각 플랜의 열(column) 배정: 겹치는 블록끼리 나란히 배치
+  var cols = []; // cols[i] = 해당 열의 마지막 종료 분
+  var planCols = plans.map(function(p){
+    var s = timeToMin(p.start_time), e = timeToMin(p.end_time);
+    var col = -1;
+    for(var c = 0; c < cols.length; c++){
+      if(cols[c] <= s){ col = c; break; }
+    }
+    if(col === -1){ col = cols.length; cols.push(0); }
+    cols[col] = e;
+    return col;
+  });
+  // 각 플랜이 속한 그룹의 최대 열 수 계산
+  var planGroupWidth = plans.map(function(p, i){
+    var s = timeToMin(p.start_time), e = timeToMin(p.end_time);
+    var maxCol = 0;
+    plans.forEach(function(q, j){
+      var qs = timeToMin(q.start_time), qe = timeToMin(q.end_time);
+      if(qs < e && qe > s) maxCol = Math.max(maxCol, planCols[j]);
+    });
+    return maxCol + 1;
+  });
+  plans.forEach(function(p, i){
     var goal = getGoals().find(function(g){ return g.id===p.goal_id; });
     var color = (goal && goal.color) || p.color || '#5B52E8';
-    (function(pid){ grid.appendChild(makeTlBlock(p.title, p.start_time, p.end_time, color, wake, false, function(){ openBlockEdit(pid,'plan'); }, pid)); })(p.id);
+    var col = planCols[i], total = planGroupWidth[i];
+    (function(pid, c, t){ grid.appendChild(makeTlBlock(p.title, p.start_time, p.end_time, color, wake, false, function(){ openBlockEdit(pid,'plan'); }, pid, c, t)); })(p.id, col, total);
   });
 
   // ── 골 팔레트 (드래그 소스) ──
@@ -2235,13 +2296,20 @@ function renderTimeline(){
   _renderTlDelayBanner();
 }
 
-function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick, planId){
+function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick, planId, col, total){
   var startMin = timeToMin(start), endMin = timeToMin(end);
   var top = (startMin - wakeMin) * PX_PER_MIN;
   var h = Math.max((endMin - startMin) * PX_PER_MIN, 20);
   var el = document.createElement('div');
   el.className = 'tl-block' + (isFixed ? ' fixed-block' : '');
-  el.style.cssText = 'top:'+(top+1)+'px;height:'+(h-2)+'px;background:'+color+'18;border-left-color:'+color+';color:'+color+';left:46px;right:3px;';
+  // 겹치는 블록 좌우 분할
+  col = col || 0; total = total || 1;
+  var LABEL_W = 46; // 시간 라벨 너비(px)
+  var GAP = 2;
+  var colW = total > 1 ? 'calc((100% - '+LABEL_W+'px - '+(GAP*(total-1))+'px) / '+total+')' : null;
+  var leftPx = total > 1 ? 'calc('+LABEL_W+'px + '+col+' * ('+colW+' + '+GAP+'px))' : LABEL_W+'px';
+  var rightPx = total > 1 ? 'calc('+(total-col-1)+' * ('+colW+' + '+GAP+'px))' : '3px';
+  el.style.cssText = 'top:'+(top+1)+'px;height:'+(h-2)+'px;background:'+color+'18;border-left-color:'+color+';color:'+color+';left:'+leftPx+';right:'+rightPx+';';
   el.innerHTML = '<div class="tl-block-title">'+escHtml(title)+'</div>'
     + (h > 30 ? '<div class="tl-block-time" id="tl-block-time-'+planId+'">'+start+' – '+end+'</div>' : '')
     + (!isFixed && planId ? '<div class="tl-block-resize-handle"></div>' : '');
@@ -3920,7 +3988,7 @@ function openMorningBriefing(){
     plans.map(function(p){ return {title:p.title,start:p.start_time,end:p.end_time,color:p.color||'#5B52E8',done:!!p.done,fixed:false}; })
   ).sort(function(a,b){ return timeToMin(a.start)-timeToMin(b.start); });
   var av=calcAvailable(TODAY);
-  var usedPct=av.available>0?Math.min(100,Math.round(av.usedPlan/av.available*100)):0;
+  var usedPct=av.total>0?Math.min(100,Math.round(av.usedPlan/av.total*100)):0;
   var nowMin=d.getHours()*60+d.getMinutes();
 
   var el=document.getElementById('briefing-content');
@@ -5191,7 +5259,7 @@ init();
   fab.innerHTML='<span class="jf-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;"></span>'
     +'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" opacity=".4"/></svg>';
   fab.onclick=toggleJarvis;
-  fab.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#374151,#1f2937);box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:background .3s,box-shadow .3s;';
+  fab.style.cssText='position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));right:16px;z-index:9999;width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#374151,#1f2937);box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:background .3s,box-shadow .3s;';
   document.body.appendChild(fab);
 })();
 </script>
