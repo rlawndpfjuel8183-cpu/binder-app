@@ -2232,6 +2232,7 @@ function renderTimeline(){
     var scrollTo = Math.max(0, (nowM - wake - 60) * PX_PER_MIN);
     setTimeout(function(){ scrollWrap.scrollTop = scrollTo; }, 100);
   }
+  _renderTlDelayBanner();
 }
 
 function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick, planId){
@@ -3111,11 +3112,51 @@ async function aiEstimateTime(){
     var text=await callGemini('Return ONLY an integer: estimated minutes to complete this task. Nothing else.','Task: "'+title+'"');
     var mins=parseInt((text||'').trim());
     if(mins>0){
-      document.getElementById('goal-est-min').value=mins;
-      document.getElementById('goal-est-display').textContent=formatEstMin(mins);
+      // 개인 시간 학습 보정
+      var corrected = applyTimeCorrection(mins);
+      document.getElementById('goal-est-min').value=corrected;
+      document.getElementById('goal-est-display').textContent=formatEstMin(corrected)
+        +(corrected!==mins?' (AI '+formatEstMin(mins)+' → 보정)':'');
     }
   }catch(e){ showToast('AI 오류'); }
   btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i>';
+}
+
+// 개인 정확도 비율로 AI 추정값 보정
+function applyTimeCorrection(rawMins){
+  var acc = getTimeAccuracy();
+  if(!acc || acc.count < 5) return rawMins; // 데이터 부족 시 그대로
+  // 과소추정 경향(>120%)이면 늘리고, 과대추정(<80%)이면 줄임
+  var ratio = acc.avgRatio / 100;
+  if(ratio > 0.85 && ratio < 1.15) return rawMins; // ±15% 이내면 보정 불필요
+  var corrected = Math.round(rawMins * ratio / 5) * 5; // 5분 단위 스냅
+  return Math.max(5, corrected);
+}
+
+// 학습 현황 패널 (주간 리포트 내 삽입)
+function renderTimeAccuracyPanel(){
+  var acc = getTimeAccuracy();
+  if(!acc) return '<div style="padding:12px;font-size:12px;color:var(--muted);text-align:center;">트래커 기록이 쌓이면<br/>개인 시간 패턴을 분석해드려요.</div>';
+  var pct = acc.avgRatio;
+  var color = pct>=85&&pct<=115 ? 'var(--green)' : pct>115 ? 'var(--rose)' : 'var(--amber)';
+  var label = pct>=85&&pct<=115 ? '정확해요 👍' : pct>115 ? '실제가 더 걸려요' : '예상보다 빨라요';
+  var barW = Math.min(Math.abs(pct-100)*2, 100);
+  var barColor = pct>=85&&pct<=115 ? 'var(--green)' : pct>115 ? 'var(--rose)' : 'var(--amber)';
+  return '<div style="background:var(--s2);border-radius:12px;padding:14px;margin-bottom:12px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    +'<span style="font-size:13px;font-weight:700;">⏱ 시간 학습 엔진</span>'
+    +'<span style="font-size:12px;color:'+color+';font-weight:700;">'+label+'</span>'
+    +'</div>'
+    +'<div style="height:6px;background:var(--bdr);border-radius:3px;margin-bottom:8px;">'
+    +'<div style="height:6px;border-radius:3px;background:'+barColor+';width:'+barW+'%;transition:.4s;"></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;">'
+    +'<div><div style="font-size:16px;font-weight:800;color:'+color+';">'+pct+'%</div><div style="font-size:10px;color:var(--muted);">실소요 비율</div></div>'
+    +'<div><div style="font-size:16px;font-weight:800;">'+acc.count+'회</div><div style="font-size:10px;color:var(--muted);">분석 데이터</div></div>'
+    +'<div><div style="font-size:16px;font-weight:800;color:var(--rose);">'+acc.underestimate+'회</div><div style="font-size:10px;color:var(--muted);">과소추정</div></div>'
+    +'</div>'
+    +(acc.count>=5?'<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">AI 시간 추정 시 이 패턴이 자동 반영됩니다</div>':'')
+    +'</div>';
 }
 
 /* ── AI 골 쪼개기 ── */
@@ -4046,6 +4087,7 @@ function openWeeklyReport(){
     +(activeGoals.length>0
       ?'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;">🎯 골 현황</div>'
         +'<div style="display:flex;flex-direction:column;gap:6px;">'
+        +renderTimeAccuracyPanel()
         +activeGoals.slice(0,5).map(function(g){
           var prog=calcGoalProgress(g.id);
           var pct=prog!==null?prog:0;
@@ -4256,10 +4298,14 @@ function showVoiceOverlay(state, text){
     _voiceInitAudio();
     /* 오디오 없이도 canvas 루프 시작 */
     if(!_voiceAnimFrame) _voiceStartCanvas();
+  } else if(state==='thinking'){
+    ov.classList.remove('done');
+    label.textContent='분석 중...';
+    sub.textContent='AI가 내용을 정리하고 있어요';
   } else if(state==='done'){
     ov.classList.add('done');
     label.textContent='"'+text+'"';
-    sub.textContent='AI가 분석 중입니다...';
+    sub.textContent='아래에서 확인 후 저장하세요';
   }
   ov.style.opacity='1';
   ov.style.display='flex';
@@ -4560,27 +4606,105 @@ function startVoiceCapture(){
   _voiceRecognition.start();
 }
 
+var _voiceCaptureResult = null;
+
 async function processVoiceInput(text){
   var apiKey=getApiKey();
   if(!apiKey){ showToast('설정에서 API 키를 입력해주세요'); return; }
-  var system='사용자가 음성으로 할 일이나 일정을 말했습니다. JSON으로만 응답하세요.\n{\n  "type": "goal" | "plan",\n  "title": "제목",\n  "start_time": "HH:MM" (plan일 때),\n  "end_time": "HH:MM" (plan일 때),\n  "est_min": 숫자 (goal일 때)\n}';
+
+  // 개인 시간 학습 반영: 평균 실소요 비율 계산
+  var acc = getTimeAccuracy();
+  var ratioHint = acc && acc.count >= 3 ? '\n참고: 이 사용자의 평균 실소요시간은 예상의 '+acc.avgRatio+'%이므로 est_min 추정 시 반영하세요.' : '';
+
+  var system = '사용자가 음성으로 할 일이나 일정을 말했습니다. JSON으로만 응답하세요.\n'
+    +'{\n  "type": "goal" | "plan",\n  "title": "제목",\n  "start_time": "HH:MM" (plan일 때),\n  "end_time": "HH:MM" (plan일 때),\n  "est_min": 숫자 (goal일 때),\n  "goal_id": null\n}'
+    + ratioHint;
   try{
-    var res=await callClaude(system,'음성 입력: '+text);
-    var json=JSON.parse(res.replace(/```json?|```/g,'').trim());
-    if(json.type==='plan'&&json.start_time&&json.end_time){
-      var p={id:genId(),plan_date:TODAY,title:json.title,start_time:json.start_time,end_time:json.end_time,color:'#5B52E8',type:'plan',created_at:new Date().toISOString()};
-      upsertPlan(p);
-      Promise.resolve(supa.from('plans').upsert(p)).catch(function(){});
-      renderTimeline(); renderHome();
-      showToast('📅 "'+json.title+'" 플랜 추가됨 ('+json.start_time+')');
-    } else {
-      var g={id:genId(),parent_id:null,type:'short_job',title:json.title,status:'backlog',priority:2,color:'#5B52E8',est_min:json.est_min||null,created_at:new Date().toISOString()};
-      upsertGoal(g);
-      Promise.resolve(supa.from('goals').upsert(g)).catch(function(){});
-      renderGoals(); renderHome();
-      showToast('🎯 "'+json.title+'" 골 추가됨');
-    }
-  } catch(e){ showToast('AI 파싱 실패: 다시 시도해주세요'); }
+    showVoiceOverlay('thinking');
+    var res = await callGemini(system, '음성 입력: '+text);
+    var json = JSON.parse(res.replace(/```json?|```/g,'').trim());
+    _voiceCaptureResult = json;
+    _voiceCaptureResult._rawText = text;
+    showVoiceCaptureReview(json, text);
+  } catch(e){ hideVoiceOverlay(); showToast('AI 파싱 실패: 다시 시도해주세요'); }
+}
+
+function showVoiceCaptureReview(json, text){
+  hideVoiceOverlay();
+  var isplan = json.type === 'plan';
+  var goals = getGoals().filter(function(g){ return g.status==='active'; });
+  var goalOpts = goals.map(function(g){
+    return '<option value="'+g.id+'"'+(json.goal_id===g.id?' selected':'')+'>'+escHtml(g.title)+'</option>';
+  }).join('');
+
+  var html = '<div style="position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;" id="vc-review-overlay">'
+    +'<div style="background:var(--bg);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;box-shadow:0 -8px 40px rgba(0,0,0,.18);">'
+    +'<div style="width:36px;height:4px;border-radius:2px;background:var(--bdr2);margin:0 auto 16px;"></div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">🎙 인식된 내용: <span style="font-style:italic;">'+escHtml(text)+'</span></div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:12px;">'
+    +'<button id="vc-type-plan" onclick="vcSwitchType(\'plan\')" class="btn btn-sm" style="flex:1;'+(isplan?'background:var(--indigo);color:#fff;border-color:var(--indigo);':'')+'">📅 플랜</button>'
+    +'<button id="vc-type-goal" onclick="vcSwitchType(\'goal\')" class="btn btn-sm" style="flex:1;'+(!isplan?'background:var(--indigo);color:#fff;border-color:var(--indigo);':'')+'">🎯 골</button>'
+    +'</div>'
+    +'<input id="vc-title" class="inp" value="'+escHtml(json.title||'')+'" placeholder="제목" style="margin-bottom:8px;"/>'
+    +'<div id="vc-plan-fields" style="display:'+(isplan?'flex':'none')+';gap:6px;margin-bottom:8px;">'
+    +'<input id="vc-start" class="inp" type="time" value="'+(json.start_time||'')+'" style="flex:1;"/>'
+    +'<input id="vc-end" class="inp" type="time" value="'+(json.end_time||'')+'" style="flex:1;"/>'
+    +'</div>'
+    +'<div id="vc-goal-fields" style="display:'+(!isplan?'flex':'none')+';gap:6px;margin-bottom:8px;">'
+    +'<input id="vc-est" class="inp" type="number" value="'+(json.est_min||'')+'" placeholder="예상 분" style="flex:1;"/>'
+    +'</div>'
+    +'<div id="vc-goal-link" style="display:'+(isplan?'block':'none')+';margin-bottom:12px;">'
+    +'<select id="vc-goal-id" class="inp"><option value="">골 연결 (선택)</option>'+goalOpts+'</select>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn btn-secondary" style="flex:1;" onclick="vcCancel()">취소</button>'
+    +'<button class="btn btn-primary" style="flex:1;" onclick="vcSave()">저장</button>'
+    +'</div>'
+    +'</div></div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+}
+
+function vcSwitchType(t){
+  _voiceCaptureResult.type = t;
+  var isplan = t === 'plan';
+  document.getElementById('vc-plan-fields').style.display = isplan ? 'flex' : 'none';
+  document.getElementById('vc-goal-fields').style.display = isplan ? 'none' : 'flex';
+  document.getElementById('vc-goal-link').style.display = isplan ? 'block' : 'none';
+  document.getElementById('vc-type-plan').style.cssText = isplan ? 'flex:1;background:var(--indigo);color:#fff;border-color:var(--indigo);' : 'flex:1;';
+  document.getElementById('vc-type-goal').style.cssText = !isplan ? 'flex:1;background:var(--indigo);color:#fff;border-color:var(--indigo);' : 'flex:1;';
+}
+
+function vcCancel(){
+  var el = document.getElementById('vc-review-overlay');
+  if(el) el.remove();
+}
+
+function vcSave(){
+  var title = (document.getElementById('vc-title').value||'').trim();
+  if(!title){ showToast('제목을 입력하세요'); return; }
+  var isplan = _voiceCaptureResult.type === 'plan';
+  if(isplan){
+    var start = document.getElementById('vc-start').value;
+    var end = document.getElementById('vc-end').value;
+    var goalId = document.getElementById('vc-goal-id').value || null;
+    var goal = goalId ? getGoals().find(function(g){ return g.id===goalId; }) : null;
+    if(!start||!end){ showToast('시작/종료 시간을 입력하세요'); return; }
+    var p = {id:genId(), plan_date:TODAY, title:title, start_time:start, end_time:end,
+      goal_id:goalId, color:(goal&&goal.color)||'#5B52E8', type:'goal', created_at:new Date().toISOString()};
+    upsertPlan(p);
+    renderTimeline(); renderHome();
+    showToast('📅 "'+escHtml(title)+'" 플랜 추가됨 ('+start+')');
+  } else {
+    var estMin = parseInt(document.getElementById('vc-est').value)||null;
+    var g = {id:genId(), parent_id:null, type:'short_job', title:title, status:'backlog',
+      priority:2, color:'#5B52E8', est_min:estMin, created_at:new Date().toISOString()};
+    upsertGoal(g);
+    renderGoals(); renderHome();
+    showToast('🎯 "'+escHtml(title)+'" 골 추가됨');
+  }
+  vcCancel();
 }
 
 /* ══════════════════════════════════════════
@@ -4783,15 +4907,47 @@ function openReroute(){
 
 function applyReroute(){
   _rerouteItems.forEach(function(item){
-    var updated=Object.assign({},item.plan,{id:genId(),start_time:item.newStart,end_time:item.newEnd,created_at:new Date().toISOString()});
+    var updated=Object.assign({},item.plan,{start_time:item.newStart,end_time:item.newEnd});
     upsertPlan(updated);
-    Promise.resolve(supa.from('plans').upsert(updated)).catch(function(){});
   });
   closeModal('modal-reroute');
   renderTimeline();
   renderHome();
   showToast(_rerouteItems.length+'개 블록이 재배치됐습니다 🔀');
   if(typeof Notification!=='undefined'&&Notification.permission==='granted') scheduleNotifications();
+}
+
+// 타임라인 지연 감지 배너
+function _renderTlDelayBanner(){
+  var existing = document.getElementById('tl-delay-banner');
+  if(existing) existing.remove();
+  if(tlDate !== TODAY) return;
+  var nowM = new Date().getHours()*60 + new Date().getMinutes();
+  var plans = getPlans(TODAY).filter(function(p){ return p.type !== 'fixed'; });
+  var tracks = getTracks(TODAY);
+  // 현재 진행 중이었어야 하는 블록 (시작됐지만 트래커에 없고 아직 종료 안 됨)
+  var overdue = plans.filter(function(p){
+    var s = timeToMin(p.start_time), e = timeToMin(p.end_time);
+    if(s > nowM || e <= nowM) return false; // 아직 안 시작 or 이미 끝남
+    return !tracks.some(function(t){ return t.title===p.title||t.plan_id===p.id; });
+  });
+  // 이미 끝났어야 하는데 트래커 없는 것
+  var missed = plans.filter(function(p){
+    var e = timeToMin(p.end_time);
+    if(e > nowM) return false;
+    return !tracks.some(function(t){ return t.title===p.title||t.plan_id===p.id; });
+  });
+  if(overdue.length === 0 && missed.length === 0) return;
+  var banner = document.createElement('div');
+  banner.id = 'tl-delay-banner';
+  var msgs = [];
+  if(overdue.length > 0) msgs.push('⏳ <b>'+escHtml(overdue[0].title)+'</b> 진행 중이에요');
+  if(missed.length > 0) msgs.push('📋 '+missed.length+'개 블록 미완료');
+  banner.style.cssText = 'margin:0 0 10px;padding:10px 14px;background:rgba(239,68,68,.08);border:1.5px solid #ef4444;border-radius:12px;font-size:12px;color:#dc2626;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;';
+  banner.innerHTML = '<span>'+msgs.join(' · ')+'</span>'
+    +'<button onclick="openReroute()" style="flex-shrink:0;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">리루팅 →</button>';
+  var header = document.getElementById('tl-date-label');
+  if(header && header.parentNode) header.parentNode.insertBefore(banner, header.parentNode.querySelector('#tl-grid') || header.nextSibling);
 }
 
 /* ══════════════════════════════════════════
