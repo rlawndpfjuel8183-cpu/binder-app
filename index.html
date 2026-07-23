@@ -447,6 +447,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 .tl-block:hover{opacity:.82;transform:scaleX(.98);}
 .tl-block.fixed-block{cursor:default;opacity:.65;}
 .tl-block.fixed-block:hover{opacity:.65;transform:none;}
+.tl-block-resize-handle{position:absolute;bottom:0;left:0;right:0;height:8px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;}
+.tl-block-resize-handle::before{content:'';width:24px;height:2px;border-radius:2px;background:currentColor;opacity:.5;}
+.tl-block:hover .tl-block-resize-handle{opacity:1;}
 .tl-block-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
 .tl-block-time{font-size:9px;opacity:.7;line-height:1.2;}
 .tl-now-line{
@@ -1275,6 +1278,12 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
           <i class="fa-solid fa-plus"></i> 직접 추가
         </button>
         <div id="goal-children-list" style="margin-top:8px;display:flex;flex-direction:column;gap:4px;"></div>
+      </div>
+      <!-- 골 완료 처리 버튼 -->
+      <div id="goal-complete-row" style="display:none;margin-top:8px;">
+        <button class="btn" id="goal-complete-btn" style="width:100%;padding:14px;font-size:15px;font-weight:700;border-radius:14px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;letter-spacing:.02em;cursor:pointer;" onclick="markGoalDone()">
+          🎉 골 완료!
+        </button>
       </div>
       <!-- 저장 버튼 -->
       <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="saveGoal()">
@@ -2149,7 +2158,7 @@ function renderTimeline(){
   getPlans(tlDate).forEach(function(p){
     var goal = getGoals().find(function(g){ return g.id===p.goal_id; });
     var color = (goal && goal.color) || p.color || '#5B52E8';
-    (function(pid){ grid.appendChild(makeTlBlock(p.title, p.start_time, p.end_time, color, wake, false, function(){ openBlockEdit(pid,'plan'); })); })(p.id);
+    (function(pid){ grid.appendChild(makeTlBlock(p.title, p.start_time, p.end_time, color, wake, false, function(){ openBlockEdit(pid,'plan'); }, pid)); })(p.id);
   });
 
   // ── 골 팔레트 (드래그 소스) ──
@@ -2225,7 +2234,7 @@ function renderTimeline(){
   }
 }
 
-function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick){
+function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick, planId){
   var startMin = timeToMin(start), endMin = timeToMin(end);
   var top = (startMin - wakeMin) * PX_PER_MIN;
   var h = Math.max((endMin - startMin) * PX_PER_MIN, 20);
@@ -2233,9 +2242,183 @@ function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick){
   el.className = 'tl-block' + (isFixed ? ' fixed-block' : '');
   el.style.cssText = 'top:'+(top+1)+'px;height:'+(h-2)+'px;background:'+color+'18;border-left-color:'+color+';color:'+color+';left:46px;right:3px;';
   el.innerHTML = '<div class="tl-block-title">'+escHtml(title)+'</div>'
-    + (h > 30 ? '<div class="tl-block-time">'+start+' – '+end+'</div>' : '');
-  if(onClick && !isFixed) el.onclick = onClick;
+    + (h > 30 ? '<div class="tl-block-time" id="tl-block-time-'+planId+'">'+start+' – '+end+'</div>' : '')
+    + (!isFixed && planId ? '<div class="tl-block-resize-handle"></div>' : '');
+  if(onClick && !isFixed) {
+    el.onclick = function(e){
+      if(e.target.classList.contains('tl-block-resize-handle')) return;
+      if(el._wasDragged) { el._wasDragged = false; return; }
+      onClick();
+    };
+  }
+  // 드래그 이동 (마우스 + 터치)
+  if(!isFixed && planId){
+    _addBlockDrag(el, planId, wakeMin);
+  }
   return el;
+}
+
+function _addBlockDrag(el, planId, wakeMin){
+  var grid = null;
+  var startY = 0, origTop = 0, dragging = false;
+  var SNAP = 15; // 15분 단위 스냅
+
+  function getGrid(){ return document.getElementById('tl-grid'); }
+
+  function onMoveStart(clientY){
+    grid = getGrid();
+    startY = clientY;
+    origTop = parseInt(el.style.top) || 0;
+    dragging = false;
+    el.style.zIndex = '50';
+    el.style.opacity = '0.85';
+    el.style.boxShadow = '0 4px 20px rgba(0,0,0,0.18)';
+    el.style.transition = 'none';
+  }
+
+  function onMoveMove(clientY){
+    var dy = clientY - startY;
+    if(Math.abs(dy) > 4) dragging = true;
+    if(!dragging) return;
+    var newTop = Math.max(0, origTop + dy);
+    el.style.top = newTop + 'px';
+    // 시간 미리보기
+    var newStartMin = wakeMin + Math.round(newTop / PX_PER_MIN);
+    var snapped = Math.round(newStartMin / SNAP) * SNAP;
+    var plans = getAllPlans();
+    var plan = plans.find(function(p){ return p.id===planId; });
+    if(plan){
+      var dur = timeToMin(plan.end_time) - timeToMin(plan.start_time);
+      var timeEl = el.querySelector('.tl-block-time');
+      if(timeEl) timeEl.textContent = minToTime(snapped%1440)+' – '+minToTime((snapped+dur)%1440);
+    }
+  }
+
+  function onMoveEnd(clientY){
+    el.style.zIndex = '';
+    el.style.opacity = '';
+    el.style.boxShadow = '';
+    el.style.transition = '';
+    if(!dragging){ return; }
+    el._wasDragged = true;
+    var newTop = parseInt(el.style.top) || 0;
+    var newStartMin = wakeMin + Math.round(newTop / PX_PER_MIN);
+    var snapped = Math.round(newStartMin / SNAP) * SNAP;
+    var plans = getAllPlans();
+    var plan = plans.find(function(p){ return p.id===planId; });
+    if(plan){
+      var dur = timeToMin(plan.end_time) - timeToMin(plan.start_time);
+      plan.start_time = minToTime(snapped % 1440);
+      plan.end_time = minToTime((snapped + dur) % 1440);
+      upsertPlan(plan);
+      showToast(minToTime(snapped%1440)+' 으로 이동했어요');
+      renderTimeline();
+      renderHome();
+    }
+  }
+
+  // 마우스
+  el.addEventListener('mousedown', function(e){
+    if(e.target.classList.contains('tl-block-resize-handle')) return;
+    e.preventDefault();
+    onMoveStart(e.clientY);
+    function mm(ev){ onMoveMove(ev.clientY); }
+    function mu(ev){ document.removeEventListener('mousemove',mm); document.removeEventListener('mouseup',mu); onMoveEnd(ev.clientY); }
+    document.addEventListener('mousemove', mm);
+    document.addEventListener('mouseup', mu);
+  });
+
+  // 터치
+  el.addEventListener('touchstart', function(e){
+    if(e.target.classList.contains('tl-block-resize-handle')) return;
+    var t = e.touches[0];
+    onMoveStart(t.clientY);
+    function tm(ev){ ev.preventDefault(); onMoveMove(ev.touches[0].clientY); }
+    function tu(ev){ el.removeEventListener('touchmove',tm); el.removeEventListener('touchend',tu); onMoveEnd(ev.changedTouches[0].clientY); }
+    el.addEventListener('touchmove', tm, {passive:false});
+    el.addEventListener('touchend', tu);
+  }, {passive:true});
+
+  // 하단 핸들 리사이즈
+  var handle = el.querySelector('.tl-block-resize-handle');
+  if(handle){
+    var resizeStartY = 0, origH = 0, resizing = false;
+    handle.addEventListener('mousedown', function(e){
+      e.stopPropagation(); e.preventDefault();
+      resizeStartY = e.clientY; origH = parseInt(el.style.height)||60; resizing = false;
+      el.style.zIndex = '50';
+      function mm(ev){
+        resizing = true;
+        var dy = ev.clientY - resizeStartY;
+        var newH = Math.max(15, origH + dy);
+        el.style.height = newH+'px';
+        // 미리보기
+        var topPx = parseInt(el.style.top)||0;
+        var startMin = wakeMin + Math.round(topPx / PX_PER_MIN);
+        var durMin = Math.round(newH / PX_PER_MIN);
+        var snappedDur = Math.max(15, Math.round(durMin / SNAP) * SNAP);
+        var timeEl = el.querySelector('.tl-block-time');
+        if(timeEl) timeEl.textContent = minToTime(startMin%1440)+' – '+minToTime((startMin+snappedDur)%1440);
+      }
+      function mu(ev){
+        document.removeEventListener('mousemove',mm); document.removeEventListener('mouseup',mu);
+        el.style.zIndex = '';
+        if(!resizing) return;
+        var topPx = parseInt(el.style.top)||0;
+        var newH = parseInt(el.style.height)||60;
+        var startMin = wakeMin + Math.round(topPx / PX_PER_MIN);
+        var durMin = Math.round(newH / PX_PER_MIN);
+        var snappedDur = Math.max(15, Math.round(durMin / SNAP) * SNAP);
+        var plans = getAllPlans();
+        var plan = plans.find(function(p){ return p.id===planId; });
+        if(plan){
+          plan.end_time = minToTime((startMin + snappedDur) % 1440);
+          upsertPlan(plan);
+          showToast(formatEstMin(snappedDur)+'으로 조정됐어요');
+          renderTimeline();
+        }
+      }
+      document.addEventListener('mousemove', mm);
+      document.addEventListener('mouseup', mu);
+    });
+    handle.addEventListener('touchstart', function(e){
+      e.stopPropagation(); e.preventDefault();
+      resizeStartY = e.touches[0].clientY; origH = parseInt(el.style.height)||60; resizing = false;
+      el.style.zIndex = '50';
+      function tm(ev){
+        ev.preventDefault(); resizing = true;
+        var dy = ev.touches[0].clientY - resizeStartY;
+        var newH = Math.max(15, origH + dy);
+        el.style.height = newH+'px';
+        var topPx = parseInt(el.style.top)||0;
+        var startMin = wakeMin + Math.round(topPx / PX_PER_MIN);
+        var durMin = Math.round(newH / PX_PER_MIN);
+        var snappedDur = Math.max(15, Math.round(durMin / SNAP) * SNAP);
+        var timeEl = el.querySelector('.tl-block-time');
+        if(timeEl) timeEl.textContent = minToTime(startMin%1440)+' – '+minToTime((startMin+snappedDur)%1440);
+      }
+      function tu(ev){
+        handle.removeEventListener('touchmove',tm); handle.removeEventListener('touchend',tu);
+        el.style.zIndex = '';
+        if(!resizing) return;
+        var topPx = parseInt(el.style.top)||0;
+        var newH = parseInt(el.style.height)||60;
+        var startMin = wakeMin + Math.round(topPx / PX_PER_MIN);
+        var durMin = Math.round(newH / PX_PER_MIN);
+        var snappedDur = Math.max(15, Math.round(durMin / SNAP) * SNAP);
+        var plans = getAllPlans();
+        var plan = plans.find(function(p){ return p.id===planId; });
+        if(plan){
+          plan.end_time = minToTime((startMin + snappedDur) % 1440);
+          upsertPlan(plan);
+          showToast(formatEstMin(snappedDur)+'으로 조정됐어요');
+          renderTimeline();
+        }
+      }
+      handle.addEventListener('touchmove', tm, {passive:false});
+      handle.addEventListener('touchend', tu);
+    }, {passive:false});
+  }
 }
 
 function tlNavDate(delta){
@@ -2723,7 +2906,17 @@ function openGoalEdit(id, isTop){
         +' · 남은 '+surv.daysLeft+'일 · 필요 '+formatEstMin(surv.totalEst)+'</div>';
     } else { survEl.style.display='none'; }
   }
+  // 완료 버튼: active 상태 골에만 표시
+  var completeRow = document.getElementById('goal-complete-row');
+  if(completeRow) completeRow.style.display = (g.status === 'active') ? '' : 'none';
   openDrawer();
+}
+
+function markGoalDone(){
+  if(!_editGoalId) return;
+  setGoalStatus('done');
+  saveGoal();
+  showToast('🎉 골 완료! 수고했어요!');
 }
 
 var GOAL_TYPE_HINTS={
