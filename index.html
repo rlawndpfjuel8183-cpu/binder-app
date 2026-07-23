@@ -1119,6 +1119,24 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 <div id="toast"></div>
 
 <!-- ═══ SETTINGS MODAL ═══ -->
+<!-- ═══ 로그인 화면 ═══ -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;z-index:99998;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:32px;">
+  <div style="font-size:48px;">📋</div>
+  <div style="font-size:26px;font-weight:800;color:var(--indigo);letter-spacing:-.02em;">바인더</div>
+  <div style="font-size:14px;color:var(--muted);text-align:center;">기기 간 동기화를 위해 로그인하세요</div>
+  <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
+    <button onclick="loginWithGoogle()" style="width:100%;padding:14px;border-radius:14px;border:1px solid var(--bdr);background:var(--s1);font-size:15px;font-weight:600;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;gap:10px;">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.5 2.7 13.5l7.8 6C12.4 13.2 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17z"/><path fill="#FBBC05" d="M10.5 28.5c-.5-1.5-.8-3-.8-4.5s.3-3 .8-4.5l-7.8-6C1 16.5 0 20.1 0 24s1 7.5 2.7 10.5l7.8-6z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2 1.4-4.6 2.2-7.7 2.2-6.2 0-11.5-4.2-13.4-9.9l-7.8 6C6.6 42.5 14.6 48 24 48z"/></svg>
+      Google로 로그인
+    </button>
+    <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;"><hr style="flex:1;border:none;border-top:1px solid var(--bdr);"/><span>또는</span><hr style="flex:1;border:none;border-top:1px solid var(--bdr);"/></div>
+    <input type="email" id="login-email" class="inp" placeholder="이메일 주소" style="width:100%;box-sizing:border-box;"/>
+    <button onclick="loginWithEmail()" style="width:100%;padding:14px;border-radius:14px;border:none;background:var(--indigo);color:#fff;font-size:15px;font-weight:600;cursor:pointer;">매직 링크 받기</button>
+    <button onclick="skipLogin()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px;">로그인 없이 계속 →</button>
+  </div>
+  <div id="login-msg" style="font-size:13px;color:var(--indigo);text-align:center;min-height:20px;"></div>
+</div>
+
 <div class="modal-overlay" id="modal-settings" onclick="closeModal('modal-settings',event)">
   <div class="modal-box">
     <div class="modal-handle"></div>
@@ -1165,10 +1183,13 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <button class="btn btn-secondary" onclick="setupPushNotifications()">
         <i class="fa-solid fa-bell"></i> 리마인더 알림 설정
       </button>
+      <div class="divider"><hr/><span>계정</span><hr/></div>
+      <div id="settings-account-info" style="font-size:13px;color:var(--muted);padding:4px 0;"></div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-settings')">취소</button>
         <button class="btn btn-primary" style="flex:1;" onclick="saveSettings()">저장</button>
       </div>
+      <button id="settings-logout-btn" onclick="doLogout()" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1px solid #ef4444;background:none;color:#ef4444;font-size:14px;font-weight:600;cursor:pointer;">로그아웃</button>
     </div>
   </div>
 </div>
@@ -1524,7 +1545,10 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 ══════════════════════════════════════════ */
 var SUPA_URL='https://tlvfyhtcowzvcjxnavzv.supabase.co';
 var SUPA_KEY='sb_publishable_cmT1Bh7YVfsTnK8V6uyU4Q_Gqgxoceb';
-var supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+var supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+var _currentUser = null;
 
 var TODAY = new Date().toISOString().slice(0,10);
 var tlDate = TODAY;
@@ -1537,15 +1561,24 @@ function getGoals(){ try{ return JSON.parse(localStorage.getItem('b2_goals')||'[
 function saveGoals(arr){ localStorage.setItem('b2_goals', JSON.stringify(arr)); }
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
+function _supaRow(table, obj){
+  if(!_currentUser) return;
+  supa.from(table).upsert({id:obj.id, user_id:_currentUser.id, data:obj, updated_at:new Date().toISOString()}).then(function(r){ if(r.error) console.warn(table+' upsert:', r.error.message); });
+}
+function _supaDelete(table, id){
+  if(!_currentUser) return;
+  supa.from(table).delete().eq('id',id).eq('user_id',_currentUser.id).then(function(){});
+}
+
 function upsertGoal(g){
   var arr=getGoals(), idx=arr.findIndex(function(x){ return x.id===g.id; });
   if(idx>=0) arr[idx]=g; else arr.push(g);
   saveGoals(arr);
-  Promise.resolve(supa.from('goals').upsert(g)).catch(function(){});
+  _supaRow('goals', g);
 }
 function deleteGoal(id){
   saveGoals(getGoals().filter(function(g){ return g.id!==id && g.parent_id!==id; }));
-  Promise.resolve(supa.from('goals').delete().eq('id',id)).catch(function(){});
+  _supaDelete('goals', id);
 }
 
 function getAllPlans(){ try{ return JSON.parse(localStorage.getItem('b2_plans')||'[]'); }catch(e){ return []; } }
@@ -1554,11 +1587,11 @@ function upsertPlan(p){
   var arr=getAllPlans(), idx=arr.findIndex(function(x){ return x.id===p.id; });
   if(idx>=0) arr[idx]=p; else arr.push(p);
   localStorage.setItem('b2_plans', JSON.stringify(arr));
-  Promise.resolve(supa.from('timeline_plans').upsert(p)).catch(function(){});
+  _supaRow('plans', p);
 }
 function deletePlan(id){
   localStorage.setItem('b2_plans', JSON.stringify(getAllPlans().filter(function(p){ return p.id!==id; })));
-  Promise.resolve(supa.from('timeline_plans').delete().eq('id',id)).catch(function(){});
+  _supaDelete('plans', id);
 }
 
 function getAllTracks(){ try{ return JSON.parse(localStorage.getItem('b2_tracks')||'[]'); }catch(e){ return []; } }
@@ -1567,10 +1600,11 @@ function upsertTrack(t){
   var arr=getAllTracks(), idx=arr.findIndex(function(x){ return x.id===t.id; });
   if(idx>=0) arr[idx]=t; else arr.push(t);
   localStorage.setItem('b2_tracks', JSON.stringify(arr));
-  Promise.resolve(supa.from('timeline_tracks').upsert(t)).catch(function(){});
+  _supaRow('tracks', t);
 }
 function deleteTrack(id){
   localStorage.setItem('b2_tracks', JSON.stringify(getAllTracks().filter(function(t){ return t.id!==id; })));
+  _supaDelete('tracks', id);
 }
 
 function getFixed(){ try{ return JSON.parse(localStorage.getItem('b2_fixed')||'[]'); }catch(e){ return []; } }
@@ -1578,11 +1612,11 @@ function upsertFixed(f){
   var arr=getFixed(), idx=arr.findIndex(function(x){ return x.id===f.id; });
   if(idx>=0) arr[idx]=f; else arr.push(f);
   localStorage.setItem('b2_fixed', JSON.stringify(arr));
-  Promise.resolve(supa.from('fixed_schedules').upsert(f)).catch(function(){});
+  _supaRow('fixed_schedules', f);
 }
 function deleteFixed(id){
   localStorage.setItem('b2_fixed', JSON.stringify(getFixed().filter(function(f){ return f.id!==id; })));
-  Promise.resolve(supa.from('fixed_schedules').delete().eq('id',id)).catch(function(){});
+  _supaDelete('fixed_schedules', id);
 }
 
 function getFixedForDate(dateStr){
@@ -1636,18 +1670,24 @@ function calcGoalProgress(goalId){
 }
 
 async function loadFromSupabase(){
+  if(!_currentUser) return;
   try{
+    var uid=_currentUser.id;
     var [gr,pr,tr,fr]=await Promise.all([
-      supa.from('goals').select('*'),
-      supa.from('timeline_plans').select('*'),
-      supa.from('timeline_tracks').select('*'),
-      supa.from('fixed_schedules').select('*')
+      supa.from('goals').select('data').eq('user_id',uid),
+      supa.from('plans').select('data').eq('user_id',uid),
+      supa.from('tracks').select('data').eq('user_id',uid),
+      supa.from('fixed_schedules').select('data').eq('user_id',uid)
     ]);
-    if(gr.data&&gr.data.length) saveGoals(gr.data);
-    if(pr.data&&pr.data.length) localStorage.setItem('b2_plans',JSON.stringify(pr.data));
-    if(tr.data&&tr.data.length) localStorage.setItem('b2_tracks',JSON.stringify(tr.data));
-    if(fr.data&&fr.data.length) localStorage.setItem('b2_fixed',JSON.stringify(fr.data));
-  }catch(e){}
+    var extract=function(r){ return r.data?r.data.map(function(row){ return row.data; }).filter(Boolean):[]; };
+    var goals=extract(gr), plans=extract(pr), tracks=extract(tr), fixed=extract(fr);
+    if(goals.length) saveGoals(goals);
+    if(plans.length) localStorage.setItem('b2_plans',JSON.stringify(plans));
+    if(tracks.length) localStorage.setItem('b2_tracks',JSON.stringify(tracks));
+    if(fixed.length) localStorage.setItem('b2_fixed',JSON.stringify(fixed));
+    renderHome();
+    if(document.querySelector('#view-timeline.active')) renderTimeline();
+  }catch(e){ console.warn('loadFromSupabase:', e); }
 }
 
 var COLORS=['#5B52E8','#0284C7','#16A34A','#D97706','#E11D48','#7C3AED','#0891B2','#059669','#B45309','#BE185D'];
@@ -4147,6 +4187,77 @@ async function init(){
   calYear=new Date().getFullYear();
   // 알림 예약 (권한 있을 때)
   if(typeof Notification!=='undefined'&&Notification.permission==='granted') scheduleNotifications();
+}
+
+/* ═══════════════════════════════════════
+   Auth (로그인 / 로그아웃 / 상태 감지)
+═══════════════════════════════════════ */
+function _showLoginScreen(show){
+  var el=document.getElementById('login-screen');
+  if(!el) return;
+  el.style.display=show?'flex':'none';
+}
+
+function _onAuthChange(user){
+  _currentUser=user;
+  if(user){
+    _showLoginScreen(false);
+    loadFromSupabase();
+    /* 설정 모달 계정 정보 갱신 */
+    var info=document.getElementById('settings-account-info');
+    if(info) info.textContent='로그인: '+user.email;
+    var logoutBtn=document.getElementById('settings-logout-btn');
+    if(logoutBtn) logoutBtn.style.display='block';
+  } else {
+    var info2=document.getElementById('settings-account-info');
+    if(info2) info2.textContent='로그인하지 않음 (로컬 저장만)';
+    var logoutBtn2=document.getElementById('settings-logout-btn');
+    if(logoutBtn2) logoutBtn2.style.display='none';
+  }
+}
+
+/* 앱 시작 시 세션 확인 */
+supa.auth.getSession().then(function(r){
+  if(r.data&&r.data.session){
+    _onAuthChange(r.data.session.user);
+  } else {
+    /* 처음 방문 시 로그인 화면 표시 */
+    var shown=sessionStorage.getItem('loginSkipped');
+    if(!shown) _showLoginScreen(true);
+  }
+});
+
+/* 로그인 상태 변화 감지 */
+supa.auth.onAuthStateChange(function(event, session){
+  _onAuthChange(session?session.user:null);
+  if(event==='SIGNED_IN') showToast('로그인됐습니다 ✓');
+  if(event==='SIGNED_OUT') showToast('로그아웃됐습니다');
+});
+
+function loginWithGoogle(){
+  supa.auth.signInWithOAuth({
+    provider:'google',
+    options:{ redirectTo: location.href }
+  });
+}
+
+function loginWithEmail(){
+  var email=(document.getElementById('login-email').value||'').trim();
+  if(!email){ document.getElementById('login-msg').textContent='이메일을 입력해주세요'; return; }
+  supa.auth.signInWithOtp({ email:email, options:{ emailRedirectTo: location.href } }).then(function(r){
+    if(r.error) document.getElementById('login-msg').textContent='오류: '+r.error.message;
+    else document.getElementById('login-msg').textContent='✉️ 이메일을 확인하세요! 링크를 클릭하면 로그인됩니다.';
+  });
+}
+
+function skipLogin(){
+  sessionStorage.setItem('loginSkipped','1');
+  _showLoginScreen(false);
+}
+
+function doLogout(){
+  supa.auth.signOut();
+  closeModal('modal-settings');
 }
 
 /* 서비스워커 등록 */
