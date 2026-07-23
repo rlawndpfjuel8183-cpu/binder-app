@@ -1128,6 +1128,12 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <input type="password" class="inp" id="set-apikey" placeholder="AIza..."/>
         <p style="font-size:11px;color:var(--muted);margin-top:5px;">키는 기기에만 저장됩니다. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--indigo);">발급받기 →</a></p>
       </div>
+      <div class="divider"><hr/><span>자비스 어시스턴트</span><hr/></div>
+      <div>
+        <label class="lbl">호출어</label>
+        <input type="text" class="inp" id="set-wakeword" placeholder="자비스"/>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">이 단어를 말하면 AI 어시스턴트가 활성화됩니다</p>
+      </div>
       <div class="divider"><hr/><span>알림</span><hr/></div>
       <button class="btn btn-secondary" onclick="setupPushNotifications()">
         <i class="fa-solid fa-bell"></i> 리마인더 알림 설정
@@ -2525,6 +2531,7 @@ function openSettings(){
   document.getElementById('set-wake').value=s.wake_time||'06:30';
   document.getElementById('set-sleep').value=s.sleep_time||'23:30';
   document.getElementById('set-apikey').value=s.api_key||'';
+  document.getElementById('set-wakeword').value=s.wake_word||'자비스';
   openModal('modal-settings');
 }
 function saveSettings(){
@@ -2533,6 +2540,8 @@ function saveSettings(){
   s.sleep_time=document.getElementById('set-sleep').value;
   var key=document.getElementById('set-apikey').value.trim();
   if(key) s.api_key=key;
+  var ww=document.getElementById('set-wakeword').value.trim();
+  if(ww) s.wake_word=ww;
   saveSettingsData(s);
   closeModal('modal-settings');
   showToast('설정이 저장됐습니다!');
@@ -3646,6 +3655,147 @@ function hideVoiceOverlay(){
   if(_voiceAudioCtx){ _voiceAudioCtx.close(); _voiceAudioCtx=null; _voiceAnalyser=null; }
 }
 
+/* ═══════════════════════════════════════
+   자비스 어시스턴트 모드
+═══════════════════════════════════════ */
+var _jarvisActive=false, _jarvisRec=null, _jarvisWaiting=false;
+
+function getWakeWord(){ return (getSettings().wake_word||'자비스').trim().toLowerCase(); }
+
+function toggleJarvis(){
+  if(_jarvisActive) stopJarvis(); else startJarvis();
+}
+
+function startJarvis(){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return;
+  }
+  _jarvisActive=true;
+  _updateJarvisFab(true);
+  showToast('🤖 자비스 대기 중... "'+getWakeWord()+'"라고 불러보세요');
+  _jarvisListen();
+}
+
+function stopJarvis(){
+  _jarvisActive=false;
+  _jarvisWaiting=false;
+  if(_jarvisRec){ try{_jarvisRec.stop();}catch(e){} _jarvisRec=null; }
+  _updateJarvisFab(false);
+  showToast('자비스 종료');
+}
+
+function _updateJarvisFab(on){
+  var fab=document.getElementById('jarvis-fab');
+  if(!fab) return;
+  fab.style.background=on?'linear-gradient(135deg,#7c3aed,#4f46e5)':'linear-gradient(135deg,#374151,#1f2937)';
+  fab.title=on?'자비스 종료 (활성)':'자비스 시작';
+  fab.querySelector('.jf-dot').style.display=on?'block':'none';
+}
+
+function _jarvisListen(){
+  if(!_jarvisActive) return;
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _jarvisRec=new SR();
+  _jarvisRec.lang='ko-KR';
+  _jarvisRec.continuous=false;
+  _jarvisRec.interimResults=false;
+
+  _jarvisRec.onresult=function(e){
+    var text=(e.results[0][0].transcript||'').trim().toLowerCase();
+    var ww=getWakeWord();
+    if(!_jarvisWaiting){
+      /* 호출어 감지 */
+      if(text.includes(ww)){
+        _jarvisWaiting=true;
+        _jarvisSay('네, 말씀하세요');
+        showVoiceOverlay('listening');
+        _voiceInitAudio();
+        if(!_voiceAnimFrame) _voiceStartCanvas();
+        setTimeout(function(){ _jarvisCapture(); }, 800);
+      } else {
+        _jarvisListen();
+      }
+    }
+  };
+  _jarvisRec.onerror=function(e){
+    if(_jarvisActive && e.error!=='aborted') setTimeout(_jarvisListen, 1000);
+  };
+  _jarvisRec.onend=function(){
+    if(_jarvisActive && !_jarvisWaiting) setTimeout(_jarvisListen, 300);
+  };
+  try{ _jarvisRec.start(); }catch(e){}
+}
+
+function _jarvisCapture(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var rec=new SR();
+  rec.lang='ko-KR';
+  rec.interimResults=false;
+  rec.onresult=function(e){
+    var cmd=e.results[0][0].transcript;
+    showVoiceOverlay('done', cmd);
+    _jarvisProcess(cmd);
+  };
+  rec.onerror=function(){
+    hideVoiceOverlay();
+    _jarvisWaiting=false;
+    _jarvisSay('다시 말씀해 주세요');
+    setTimeout(_jarvisListen, 500);
+  };
+  rec.onend=function(){
+    var ov=document.getElementById('voice-overlay');
+    if(ov && !ov.classList.contains('done')){ hideVoiceOverlay(); _jarvisWaiting=false; setTimeout(_jarvisListen,300); }
+  };
+  try{ rec.start(); }catch(e){}
+}
+
+async function _jarvisProcess(cmd){
+  var key=getApiKey();
+  if(!key){ hideVoiceOverlay(); _jarvisSay('API 키가 설정되지 않았습니다'); _jarvisWaiting=false; setTimeout(_jarvisListen,500); return; }
+  var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  var sys='당신은 바인더 앱의 AI 어시스턴트 자비스입니다. 한국어로 짧고 명확하게 답변하세요. 오늘은 '+today+'입니다. '
+    +'사용자가 일정/골 추가를 요청하면 JSON으로 응답하세요: {"action":"add_plan","title":"...","date":"YYYY-MM-DD","start":"HH:MM","end":"HH:MM"} 또는 {"action":"add_goal","title":"..."}. '
+    +'그 외 질문은 {"action":"reply","text":"..."}으로 응답하세요. JSON만 출력하세요.';
+  var res=await callGemini(sys, cmd);
+  if(!res){ hideVoiceOverlay(); _jarvisWaiting=false; setTimeout(_jarvisListen,500); return; }
+  try{
+    var j=JSON.parse(res.trim().replace(/```json|```/g,'').trim());
+    if(j.action==='add_plan'){
+      var plan={id:'p'+Date.now(),title:j.title,date:j.date||(new Date().toISOString().slice(0,10)),start:j.start||'09:00',end:j.end||'10:00',done:false};
+      var plans=JSON.parse(localStorage.getItem('b2_plans')||'[]');
+      plans.push(plan); localStorage.setItem('b2_plans',JSON.stringify(plans));
+      var reply='"'+j.title+'" 일정을 추가했습니다';
+      showVoiceOverlay('done', reply);
+      _jarvisSay(reply);
+      renderHome();
+    } else if(j.action==='add_goal'){
+      var goal={id:'g'+Date.now(),title:j.title,type:'task',status:'backlog',priority:2,color:'#5B52E8',progress:0,created:Date.now()};
+      var goals=JSON.parse(localStorage.getItem('b2_goals')||'[]');
+      goals.push(goal); localStorage.setItem('b2_goals',JSON.stringify(goals));
+      var reply2='"'+j.title+'" 골을 추가했습니다';
+      showVoiceOverlay('done', reply2);
+      _jarvisSay(reply2);
+      renderHome();
+    } else {
+      var reply3=j.text||res;
+      showVoiceOverlay('done', reply3);
+      _jarvisSay(reply3);
+    }
+  } catch(e){
+    showVoiceOverlay('done', res);
+    _jarvisSay(res);
+  }
+  setTimeout(function(){ hideVoiceOverlay(); _jarvisWaiting=false; setTimeout(_jarvisListen,500); }, 8000);
+}
+
+function _jarvisSay(text){
+  if(!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  var u=new SpeechSynthesisUtterance(text);
+  u.lang='ko-KR'; u.rate=1.05; u.pitch=1;
+  speechSynthesis.speak(u);
+}
+
 function startVoiceCapture(){
   if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
     showToast('이 브라우저는 음성 인식을 지원하지 않습니다');
@@ -3971,4 +4121,16 @@ async function init(){
 }
 
 init();
+
+/* 자비스 FAB 삽입 */
+(function(){
+  var fab=document.createElement('button');
+  fab.id='jarvis-fab';
+  fab.title='자비스 시작';
+  fab.innerHTML='<span class="jf-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;"></span>'
+    +'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" opacity=".4"/></svg>';
+  fab.onclick=toggleJarvis;
+  fab.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#374151,#1f2937);box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:background .3s,box-shadow .3s;';
+  document.body.appendChild(fab);
+})();
 </script>
