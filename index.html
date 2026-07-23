@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 /* ── TOKENS ─────────────────────────────── */
 :root{
@@ -803,6 +804,22 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
             <i class="fa-solid fa-share-nodes" style="font-size:18px;color:var(--indigo);"></i>
             <span style="font-size:10px;font-weight:700;color:var(--text);">리포트 공유</span>
           </button>
+          <button onclick="importFromGoogle()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-brands fa-google" style="font-size:18px;color:#4285F4;"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">구글 가져오기</span>
+          </button>
+          <button onclick="exportToGoogle()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-brands fa-google" style="font-size:18px;color:#EA4335;"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">구글 내보내기</span>
+          </button>
+          <button onclick="exportToAppleCal('today')" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-brands fa-apple" style="font-size:18px;color:var(--text);"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">오늘 .ics</span>
+          </button>
+          <button onclick="exportToAppleCal('all')" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-brands fa-apple" style="font-size:18px;color:var(--text);"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">전체 .ics</span>
+          </button>
         </div>
       </div>
 
@@ -967,6 +984,21 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <button class="cal-tab" data-caltab="weekly" onclick="switchCalTab('weekly',this)">위클리</button>
         <button class="cal-tab on" data-caltab="month" onclick="switchCalTab('month',this)">먼슬리</button>
         <button class="cal-tab" data-caltab="fixed" onclick="switchCalTab('fixed',this)">고정 일정</button>
+      </div>
+      <!-- 캘린더 연동 버튼 바 -->
+      <div style="display:flex;gap:6px;padding:6px 12px;border-bottom:1px solid var(--bdr);background:var(--s1);flex-shrink:0;overflow-x:auto;">
+        <button onclick="importFromGoogle()" style="display:flex;align-items:center;gap:5px;white-space:nowrap;padding:5px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--s2);font-size:11px;font-weight:700;cursor:pointer;color:var(--text);">
+          <i class="fa-brands fa-google" style="color:#4285F4;"></i> Google 가져오기
+        </button>
+        <button onclick="exportToGoogle()" style="display:flex;align-items:center;gap:5px;white-space:nowrap;padding:5px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--s2);font-size:11px;font-weight:700;cursor:pointer;color:var(--text);">
+          <i class="fa-brands fa-google" style="color:#EA4335;"></i> Google 내보내기
+        </button>
+        <button onclick="exportToAppleCal('today')" style="display:flex;align-items:center;gap:5px;white-space:nowrap;padding:5px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--s2);font-size:11px;font-weight:700;cursor:pointer;color:var(--text);">
+          <i class="fa-brands fa-apple" style="color:var(--text);"></i> 오늘 .ics
+        </button>
+        <button onclick="exportToAppleCal('all')" style="display:flex;align-items:center;gap:5px;white-space:nowrap;padding:5px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--s2);font-size:11px;font-weight:700;cursor:pointer;color:var(--text);">
+          <i class="fa-brands fa-apple" style="color:var(--text);"></i> 전체 .ics
+        </button>
       </div>
 
       <!-- 데일리 -->
@@ -1174,6 +1206,21 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <input type="hidden" id="set-shortcut-hidden"/>
         <p style="font-size:11px;color:var(--muted);margin-top:5px;">클릭 후 원하는 키 조합을 누르세요 (기본: Ctrl+Space)</p>
       </div>
+      <div class="divider"><hr/><span>캘린더 연동</span><hr/></div>
+      <div>
+        <label class="lbl">Google Calendar Client ID</label>
+        <input type="text" class="inp" id="set-gcal-id" placeholder="xxxxxx.apps.googleusercontent.com"/>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;"><a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--indigo);">Google Cloud Console</a>에서 OAuth 클라이언트 ID 생성 후 입력하세요.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="connectGoogleCal()">
+          <i class="fa-brands fa-google"></i> Google 캘린더 연결
+        </button>
+        <button class="btn btn-secondary" style="flex:1;" id="gcal-disconnect-btn" onclick="disconnectGoogleCal()" style="display:none;">
+          <i class="fa-solid fa-link-slash"></i> 연결 해제
+        </button>
+      </div>
+      <div id="gcal-status" style="font-size:11px;color:var(--muted);"></div>
       <div class="divider"><hr/><span>알림</span><hr/></div>
       <button class="btn btn-secondary" onclick="setupPushNotifications()">
         <i class="fa-solid fa-bell"></i> 리마인더 알림 설정
@@ -2946,6 +2993,10 @@ function openSettings(){
   document.getElementById('set-wakeword').value=s.wake_word||'자비스';
   document.getElementById('set-shortcut').value=s.jarvis_shortcut||'ctrl+space';
   document.getElementById('set-shortcut-hidden').value='';
+  document.getElementById('set-gcal-id').value=s.gcal_client_id||'';
+  var connected=!!localStorage.getItem('gcal_token');
+  document.getElementById('gcal-status').textContent=connected?'✅ Google 캘린더 연결됨':'연결되지 않음';
+  document.getElementById('gcal-disconnect-btn').style.display=connected?'':'none';
   openModal('modal-settings');
 }
 function saveSettings(){
@@ -2958,6 +3009,8 @@ function saveSettings(){
   if(ww) s.wake_word=ww;
   var sc=document.getElementById('set-shortcut-hidden').value.trim();
   if(sc) s.jarvis_shortcut=sc;
+  var gcalId=document.getElementById('set-gcal-id').value.trim();
+  if(gcalId) s.gcal_client_id=gcalId;
   saveSettingsData(s);
   closeModal('modal-settings');
   showToast('설정이 저장됐습니다!');
@@ -5272,6 +5325,162 @@ function onboardingNext(){
 function finishOnboarding(){
   localStorage.setItem('binder_onboarded','1');
   document.getElementById('modal-onboarding').classList.remove('open');
+}
+
+/* ══════════════════════════════════════════
+   GOOGLE CALENDAR
+══════════════════════════════════════════ */
+var _gcalToken = null;
+
+function getGcalToken(){ return _gcalToken || localStorage.getItem('gcal_token'); }
+
+function connectGoogleCal(){
+  var clientId=(getSettings().gcal_client_id||'').trim();
+  if(!clientId){ showToast('먼저 Google Calendar Client ID를 입력하고 저장하세요'); return; }
+  // GIS token client
+  var tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/calendar',
+    callback: function(resp){
+      if(resp.error){ showToast('Google 연결 실패: '+resp.error); return; }
+      _gcalToken = resp.access_token;
+      localStorage.setItem('gcal_token', resp.access_token);
+      document.getElementById('gcal-status').textContent='✅ Google 캘린더 연결됨';
+      document.getElementById('gcal-disconnect-btn').style.display='';
+      showToast('✅ Google 캘린더 연결 완료!');
+    }
+  });
+  tokenClient.requestAccessToken();
+}
+
+function disconnectGoogleCal(){
+  _gcalToken=null;
+  localStorage.removeItem('gcal_token');
+  document.getElementById('gcal-status').textContent='연결되지 않음';
+  document.getElementById('gcal-disconnect-btn').style.display='none';
+  showToast('Google 캘린더 연결 해제됨');
+}
+
+function gcalFetch(url, method, body){
+  var token=getGcalToken();
+  if(!token){ showToast('Google 캘린더 연결이 필요합니다 (설정에서 연결)'); return Promise.reject('no token'); }
+  var opts={method:method||'GET', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'}};
+  if(body) opts.body=JSON.stringify(body);
+  return fetch(url, opts).then(function(r){
+    if(r.status===401){ disconnectGoogleCal(); showToast('Google 로그인이 만료됐습니다. 다시 연결하세요'); return Promise.reject('expired'); }
+    return r.json();
+  });
+}
+
+function importFromGoogle(){
+  var token=getGcalToken();
+  if(!token){ showToast('설정에서 Google 캘린더를 먼저 연결하세요'); return; }
+  showToast('Google 캘린더 가져오는 중...');
+  // 오늘 기준 ±15일 범위
+  var from=new Date(); from.setDate(from.getDate()-1);
+  var to=new Date(); to.setDate(to.getDate()+15);
+  var url='https://www.googleapis.com/calendar/v3/calendars/primary/events'
+    +'?timeMin='+from.toISOString()+'&timeMax='+to.toISOString()
+    +'&singleEvents=true&orderBy=startTime&maxResults=100';
+  gcalFetch(url).then(function(data){
+    if(!data||!data.items){ showToast('Google 캘린더 이벤트를 불러오지 못했습니다'); return; }
+    var imported=0;
+    data.items.forEach(function(ev){
+      if(!ev.start) return;
+      // 종일 이벤트는 스킵
+      if(ev.start.date && !ev.start.dateTime) return;
+      var startDt=new Date(ev.start.dateTime);
+      var endDt=new Date(ev.end.dateTime);
+      var ds=startDt.toISOString().slice(0,10);
+      var sh=(startDt.getHours()<10?'0':'')+startDt.getHours()+':'+(startDt.getMinutes()<10?'0':'')+startDt.getMinutes();
+      var eh=(endDt.getHours()<10?'0':'')+endDt.getHours()+':'+(endDt.getMinutes()<10?'0':'')+endDt.getMinutes();
+      // 이미 있으면 스킵 (gcal_id 기준)
+      var existing=getAllPlans().find(function(p){ return p.gcal_id===ev.id; });
+      if(existing) return;
+      upsertPlan({id:genId(), gcal_id:ev.id, plan_date:ds, title:ev.summary||'(제목없음)',
+        start_time:sh, end_time:eh, color:'#4285F4', type:'gcal', created_at:new Date().toISOString()});
+      imported++;
+    });
+    showToast('✅ Google 캘린더 '+imported+'개 이벤트 가져왔습니다!');
+    renderTimeline(); renderCalendar(); renderHome();
+  }).catch(function(e){ if(e!=='no token'&&e!=='expired') showToast('가져오기 실패: '+e); });
+}
+
+function exportToGoogle(){
+  var token=getGcalToken();
+  if(!token){ showToast('설정에서 Google 캘린더를 먼저 연결하세요'); return; }
+  var plans=getPlans(tlDate).filter(function(p){ return p.type!=='fixed'&&p.type!=='gcal'&&!p._recurBase&&!p.gcal_id; });
+  if(!plans.length){ showToast('내보낼 플랜이 없습니다'); return; }
+  showToast('Google 캘린더로 내보내는 중...');
+  var done=0;
+  Promise.all(plans.map(function(p){
+    var body={summary:p.title,
+      start:{dateTime:tlDate+'T'+p.start_time+':00',timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone},
+      end:{dateTime:tlDate+'T'+p.end_time+':00',timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone}};
+    return gcalFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events','POST',body)
+      .then(function(ev){ if(ev&&ev.id){ p.gcal_id=ev.id; upsertPlan(p); done++; } });
+  })).then(function(){ showToast('✅ '+done+'개 플랜을 Google 캘린더에 내보냈습니다!'); }).catch(function(){});
+}
+
+/* ══════════════════════════════════════════
+   APPLE CALENDAR (.ics)
+══════════════════════════════════════════ */
+function pad2(n){ return n<10?'0'+n:String(n); }
+
+function toICSDate(dateStr, timeStr){
+  // dateStr: YYYY-MM-DD, timeStr: HH:MM
+  var d=dateStr.replace(/-/g,'');
+  var t=(timeStr||'00:00').replace(':','')+'00';
+  return d+'T'+t;
+}
+
+function genICS(plans, title){
+  var lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//바인더//KO','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:'+title];
+  plans.forEach(function(p){
+    var uid=p.id+'@binder';
+    var now=new Date();
+    var stamp=now.getFullYear()+''+pad2(now.getMonth()+1)+''+pad2(now.getDate())+'T'+pad2(now.getHours())+''+pad2(now.getMinutes())+''+pad2(now.getSeconds())+'Z';
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:'+uid);
+    lines.push('DTSTAMP:'+stamp);
+    lines.push('DTSTART;TZID=Asia/Seoul:'+toICSDate(p.plan_date, p.start_time));
+    lines.push('DTEND;TZID=Asia/Seoul:'+toICSDate(p.plan_date, p.end_time));
+    lines.push('SUMMARY:'+p.title);
+    if(p.recur==='daily') lines.push('RRULE:FREQ=DAILY');
+    else if(p.recur==='weekdays') lines.push('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
+    else if(p.recur==='weekly'&&p.recur_days&&p.recur_days.length){
+      var dayMap=['SU','MO','TU','WE','TH','FR','SA'];
+      lines.push('RRULE:FREQ=WEEKLY;BYDAY='+p.recur_days.map(function(d){ return dayMap[d]; }).join(','));
+    }
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+function exportToAppleCal(mode){
+  var plans;
+  var filename;
+  if(mode==='today'){
+    plans=getPlans(tlDate).filter(function(p){ return !p._recurBase&&p.type!=='gcal'; });
+    filename='binder_'+tlDate+'.ics';
+  } else {
+    // 앞으로 30일 플랜 + 반복 플랜 원본
+    var all=getAllPlans().filter(function(p){ return p.type!=='gcal'; });
+    // 반복 플랜은 원본만 (RRULE로 처리)
+    var recurBases=all.filter(function(p){ return p.recur; });
+    var direct=all.filter(function(p){ return !p.recur&&p.plan_date>=TODAY; });
+    plans=direct.concat(recurBases);
+    filename='binder_all.ics';
+  }
+  if(!plans.length){ showToast('내보낼 플랜이 없습니다'); return; }
+  var ics=genICS(plans,'바인더');
+  var blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+  showToast('📅 Apple Calendar에서 이 파일을 열면 됩니다!');
 }
 
 /* ══════════════════════════════════════════
