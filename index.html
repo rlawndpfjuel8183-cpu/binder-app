@@ -3843,6 +3843,10 @@ function _jarvisAskDuration(title, date, start){
     grid.appendChild(btn);
   });
 
+  var voiceHint=document.createElement('div');
+  voiceHint.style.cssText='color:rgba(180,150,255,.7);font-size:12px;text-align:center;letter-spacing:.03em;';
+  voiceHint.textContent='🎙 말하거나 탭해서 선택';
+
   var cancelBtn=document.createElement('button');
   cancelBtn.textContent='취소';
   cancelBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer;margin-top:4px;';
@@ -3850,8 +3854,47 @@ function _jarvisAskDuration(title, date, start){
 
   picker.appendChild(titleEl);
   picker.appendChild(grid);
+  picker.appendChild(voiceHint);
   picker.appendChild(cancelBtn);
   document.body.appendChild(picker);
+
+  /* 음성으로 선택 — 선택지 표시 후 자동 시작 */
+  setTimeout(function(){
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR) return;
+    var rec=new SR();
+    rec.lang='ko-KR'; rec.interimResults=false;
+    rec.onresult=function(e){
+      var said=(e.results[0][0].transcript||'').replace(/\s/g,'');
+      /* 발화→분 매핑 */
+      var map=[
+        {patterns:['30분','삼십분'], min:30},
+        {patterns:['1시간','한시간','일시간','60분'], min:60},
+        {patterns:['1시간30분','한시간반','1시간반','90분'], min:90},
+        {patterns:['2시간','두시간','이시간','120분'], min:120},
+        {patterns:['3시간','세시간','삼시간','180분'], min:180}
+      ];
+      var matched=null;
+      for(var i=0;i<map.length;i++){
+        for(var k=0;k<map[i].patterns.length;k++){
+          if(said.includes(map[i].patterns[k])){ matched=map[i]; break; }
+        }
+        if(matched) break;
+      }
+      if(matched){
+        picker.remove();
+        _jarvisAddPlan(title, date, start, _addMinutes(start, matched.min));
+      } else {
+        /* 못 알아들으면 다시 시도 힌트 */
+        voiceHint.textContent='❓ 다시 말씀해주세요 (예: "1시간", "30분")';
+        voiceHint.style.color='rgba(255,180,80,.9)';
+        setTimeout(function(){ rec.start(); },600);
+      }
+    };
+    rec.onerror=function(){};
+    rec.onend=function(){};
+    try{ rec.start(); }catch(e){}
+  }, 900); /* TTS 끝난 뒤 시작 */
 }
 
 function _addMinutes(timeStr, mins){
