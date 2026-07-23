@@ -3449,6 +3449,23 @@ function openWeeklyReport(){
 ══════════════════════════════════════════ */
 var _voiceRecognition=null;
 
+function showVoiceBanner(msg){
+  var b=document.getElementById('voice-banner');
+  if(!b){
+    b=document.createElement('div');
+    b.id='voice-banner';
+    b.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#1a1a2e;color:#fff;border-radius:99px;padding:10px 22px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);transition:opacity .3s;';
+    document.body.appendChild(b);
+  }
+  b.innerHTML=msg;
+  b.style.opacity='1';
+  b.style.display='flex';
+}
+function hideVoiceBanner(){
+  var b=document.getElementById('voice-banner');
+  if(b){ b.style.opacity='0'; setTimeout(function(){ if(b) b.style.display='none'; },300); }
+}
+
 function startVoiceCapture(){
   if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
     showToast('이 브라우저는 음성 인식을 지원하지 않습니다');
@@ -3459,14 +3476,19 @@ function startVoiceCapture(){
   _voiceRecognition.lang='ko-KR';
   _voiceRecognition.interimResults=false;
   _voiceRecognition.maxAlternatives=1;
-  showToast('🎤 말씀하세요... (골/일정 내용을 말해주세요)');
+  showVoiceBanner('<span style="width:10px;height:10px;border-radius:50%;background:#f87171;display:inline-block;animation:pulse 1s infinite;"></span> 🎤 음성 인식 중... 말씀하세요');
   _voiceRecognition.onresult=function(e){
     var text=e.results[0][0].transcript;
-    showToast('인식: "'+text+'" — AI 분석 중...');
+    showVoiceBanner('<span style="width:10px;height:10px;border-radius:50%;background:#34d399;display:inline-block;"></span> ✅ "'+text+'" — AI 분석 중...');
     processVoiceInput(text);
+    setTimeout(hideVoiceBanner, 3000);
   };
   _voiceRecognition.onerror=function(e){
+    hideVoiceBanner();
     showToast('음성 인식 오류: '+e.error);
+  };
+  _voiceRecognition.onend=function(){
+    hideVoiceBanner();
   };
   _voiceRecognition.start();
 }
