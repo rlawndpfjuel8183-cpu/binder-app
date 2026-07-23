@@ -3481,7 +3481,7 @@ function startVoiceCapture(){
     var text=e.results[0][0].transcript;
     showVoiceBanner('<span style="width:10px;height:10px;border-radius:50%;background:#34d399;display:inline-block;"></span> ✅ "'+text+'" — AI 분석 중...');
     processVoiceInput(text);
-    setTimeout(hideVoiceBanner, 3000);
+    setTimeout(hideVoiceBanner, 8000);
   };
   _voiceRecognition.onerror=function(e){
     hideVoiceBanner();
