@@ -1943,7 +1943,7 @@ function renderGoalList(){
       childHtml='<div class="goal-children">'
         +children.map(function(sub){
           var subProg=calcGoalProgress(sub.id);
-          var subColor=TYPE_COLORS[sub.type]||color;
+          var subColor=color;
           var subDl='';
           if(sub.deadline){ var d2=Math.ceil((new Date(sub.deadline)-new Date())/86400000); subDl=d2<=0?'<span class="badge badge-rose" style="margin-left:auto;">D-day</span>':d2<=7?'<span class="badge badge-amber" style="margin-left:auto;">D-'+d2+'</span>':''; }
           var gc=goals.filter(function(x){ return x.parent_id===sub.id; });
@@ -2832,15 +2832,58 @@ function updateGoalChildrenList(){
   var listEl=document.getElementById('goal-children-list');
   if(!listEl||!_editGoalId) return;
   var children=getGoals().filter(function(g){ return g.parent_id===_editGoalId; });
-  if(!children.length){ listEl.innerHTML=''; return; }
-  listEl.innerHTML=children.map(function(c){
-    var est=c.est_min?'<span style="font-size:10px;color:var(--muted);background:var(--s3);padding:1px 6px;border-radius:99px;flex-shrink:0;">'+formatEstMin(c.est_min)+'</span>':'';
-    var done=c.status==='done';
-    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:8px;cursor:pointer;" onclick="closeDrawer();setTimeout(function(){openGoalEdit(\''+c.id+'\');},200)">'
-      +'<i class="fa-solid fa-'+(done?'circle-check':'circle')+'" style="color:'+(done?'var(--green)':'var(--muted)')+';font-size:14px;"></i>'
-      +'<span style="flex:1;font-size:13px;'+(done?'text-decoration:line-through;color:var(--muted)':'')+'">'+escHtml(c.title)+'</span>'
-      +est+'</div>';
-  }).join('');
+  if(!children.length){ listEl.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:10px 0;">하위 항목이 없습니다</div>'; return; }
+  // 완료/미완료 분리
+  var active=children.filter(function(c){ return c.status!=='done'; });
+  var done=children.filter(function(c){ return c.status==='done'; });
+  var sorted=active.concat(done);
+  listEl.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.04em;">'
+    +'하위 항목 '+children.length+'개 · 완료 '+done.length+'개</div>'
+    +sorted.map(function(c){
+      var isDone=c.status==='done';
+      var est=c.est_min?formatEstMin(c.est_min):'';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border-radius:10px;margin-bottom:4px;">'
+        // 완료 토글
+        +'<button onclick="toggleChildDone(\''+c.id+'\')" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;">'
+          +'<i class="fa-solid fa-'+(isDone?'circle-check':'circle')+'" style="font-size:18px;color:'+(isDone?'#22c55e':'var(--muted)')+';"></i>'
+        +'</button>'
+        // 제목 (클릭 → 편집)
+        +'<div style="flex:1;min-width:0;cursor:pointer;" onclick="closeDrawer();setTimeout(function(){openGoalEdit(\''+c.id+'\');},200)">'
+          +'<div style="font-size:13px;font-weight:600;'+(isDone?'text-decoration:line-through;color:var(--muted);':'')+'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escHtml(c.title)+'</div>'
+          +(est?'<div style="font-size:10px;color:var(--muted);">'+est+'</div>':'')
+        +'</div>'
+        // 타임라인 추가
+        +(isDone?'':'<button onclick="scheduleChildToToday(\''+c.id+'\',\''+escHtml(c.title)+'\','+(c.est_min||60)+')" title="오늘 타임라인에 추가" style="background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0;color:var(--muted);">'
+          +'<i class="fa-regular fa-calendar-plus" style="font-size:14px;"></i>'
+        +'</button>')
+      +'</div>';
+    }).join('');
+}
+
+function toggleChildDone(childId){
+  var goals=getGoals();
+  var c=goals.find(function(g){ return g.id===childId; });
+  if(!c) return;
+  c.status=c.status==='done'?'active':'done';
+  saveGoals(goals);
+  updateGoalChildrenList();
+  renderGoals(); renderHome();
+}
+
+function scheduleChildToToday(childId, title, estMin){
+  // 오늘 첫 번째 빈 슬롯에 배치
+  var slots=getFreeSlots(TODAY).filter(function(s){ return s.e-s.s>=estMin; });
+  var slot=slots[0];
+  if(!slot){
+    showToast('오늘 빈 슬롯이 없습니다. 타임라인에서 직접 추가해보세요.');
+    return;
+  }
+  var newStart=minToTime(slot.s);
+  var newEnd=minToTime(slot.s+estMin);
+  upsertPlan({id:genId(),plan_date:TODAY,title:title,start_time:newStart,end_time:newEnd,
+    color:_editGoalColor||'#5B52E8',type:'plan',goal_id:childId});
+  showToast('오늘 '+newStart+'에 추가됐습니다!');
+  renderHome();
 }
 
 /* ── AI 예상 시간 추정 ── */
@@ -2867,14 +2910,28 @@ async function aiBreakdownGoal(){
   if(!title){ showToast('제목을 먼저 입력하세요'); return; }
   if(!s.api_key){ showToast('설정에서 API 키를 입력해주세요'); return; }
   if(!_editGoalId) saveGoalSilent();
+  var deadline=document.getElementById('goal-edit-deadline').value||'';
+  var existingChildren=getGoals().filter(function(g){ return g.parent_id===_editGoalId; });
   var resultEl=document.getElementById('ai-suggest-result');
-  resultEl.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> AI가 세부 작업 생성 중...</div>';
+  resultEl.innerHTML='<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center;background:var(--s2);border-radius:10px;"><i class="fa-solid fa-spinner fa-spin"></i> AI가 세부 작업 구성 중...</div>';
   try{
-    var raw=await callGemini('You are a task breakdown assistant. Return ONLY a raw JSON array (no markdown, no code blocks). Each item: {"title":"한국어 작업명","est_min":number}','골: "'+title+'"\n실행 가능한 세부 작업 5~8개로 쪼개줘. 각 작업 예상 소요시간(분) 포함.');
+    var sys='당신은 목표 실행 전문가입니다. 사용자의 골을 실행 가능한 세부 작업으로 쪼개주세요.\n'
+      +'반드시 JSON 배열만 반환하세요 (마크다운 없이). 형식: [{"title":"작업명","est_min":숫자,"order":숫자}]\n'
+      +'- 각 작업은 하루 안에 끝낼 수 있는 단위로 분리\n'
+      +'- 작업 순서(order)는 논리적 실행 순서 반영\n'
+      +'- 소요시간은 현실적으로 (집중 작업 기준)\n'
+      +'- 5~8개 작업 생성\n'
+      +'- 이미 존재하는 하위 항목과 중복 없게';
+    var usr='골: "'+title+'"'
+      +(deadline?'\n마감일: '+deadline:'')
+      +(existingChildren.length?'\n기존 하위 항목: '+existingChildren.map(function(c){ return c.title; }).join(', '):'');
+    var raw=await callGemini(sys, usr);
     var text=(raw||'').trim().replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    renderAISuggestions(JSON.parse(text));
+    var tasks=JSON.parse(text);
+    tasks.sort(function(a,b){ return (a.order||0)-(b.order||0); });
+    renderAISuggestions(tasks);
   }catch(e){
-    resultEl.innerHTML='<div style="color:var(--rose);font-size:12px;padding:8px 0;">오류가 발생했습니다. 다시 시도해주세요.</div>';
+    resultEl.innerHTML='<div style="color:var(--rose);font-size:12px;padding:10px;background:var(--s2);border-radius:10px;text-align:center;">AI 오류가 발생했습니다. 다시 시도해주세요.</div>';
   }
 }
 
@@ -2882,18 +2939,27 @@ function renderAISuggestions(tasks){
   window._aiSuggestedTasks=tasks;
   var resultEl=document.getElementById('ai-suggest-result');
   if(!tasks||!tasks.length){ resultEl.innerHTML=''; return; }
-  resultEl.innerHTML='<div style="background:var(--s2);border-radius:10px;padding:10px;margin-top:4px;">'
-    +'<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.04em;">AI 제안 — 선택 후 추가</div>'
+  var totalMin=tasks.reduce(function(a,t){ return a+(t.est_min||30); },0);
+  resultEl.innerHTML='<div style="background:var(--indigo-light,#eef2ff);border:1.5px solid var(--indigo);border-radius:12px;padding:12px;margin-top:4px;">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--indigo);">✨ AI 제안 '+tasks.length+'개</div>'
+      +'<div style="font-size:11px;color:var(--muted);">총 '+formatEstMin(totalMin)+'</div>'
+    +'</div>'
     +tasks.map(function(t,i){
       var timeStr=formatEstMin(t.est_min||30);
-      return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--bdr);">'
-        +'<input type="checkbox" data-ai-idx="'+i+'" checked style="accent-color:var(--indigo);width:15px;height:15px;flex-shrink:0;"/>'
-        +'<span style="flex:1;">'+escHtml(t.title)+'</span>'
-        +'<span style="color:var(--muted);font-size:10px;background:var(--s3);padding:2px 6px;border-radius:99px;white-space:nowrap;">'+timeStr+'</span>'
+      return '<label style="display:flex;align-items:center;gap:8px;padding:8px 4px;cursor:pointer;border-bottom:1px solid var(--bdr);">'
+        +'<input type="checkbox" data-ai-idx="'+i+'" checked style="accent-color:var(--indigo);width:16px;height:16px;flex-shrink:0;"/>'
+        +'<span style="flex:1;font-size:13px;">'+escHtml(t.title)+'</span>'
+        +'<span style="color:var(--muted);font-size:10px;background:var(--s1);padding:2px 7px;border-radius:99px;white-space:nowrap;flex-shrink:0;">'+timeStr+'</span>'
         +'</label>';
     }).join('')
-    +'<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="addAISuggestedTasks()">'
-    +'<i class="fa-solid fa-plus"></i> 선택 항목 추가</button></div>';
+    +'<div style="display:flex;gap:6px;margin-top:10px;">'
+      +'<button class="btn btn-secondary btn-sm" style="flex:1;" onclick="document.getElementById(\'ai-suggest-result\').innerHTML=\'\'">'
+        +'취소</button>'
+      +'<button class="btn btn-primary btn-sm" style="flex:1;" onclick="addAISuggestedTasks()">'
+        +'<i class="fa-solid fa-plus"></i> 선택 추가</button>'
+    +'</div>'
+  +'</div>';
 }
 
 function addAISuggestedTasks(){
@@ -2907,7 +2973,6 @@ function addAISuggestedTasks(){
       status:'active',priority:_editGoalPriority,color:_editGoalColor,
       est_min:task.est_min||30,created_at:new Date().toISOString()};
     goals.push(newG);
-    Promise.resolve(supa.from('goals').upsert(newG)).catch(function(){});
   });
   saveGoals(goals);
   showToast(checks.length+'개 추가됐습니다!');
