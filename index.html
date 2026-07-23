@@ -778,14 +778,10 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
           <i class="fa-solid fa-ellipsis" id="home-more-icon"></i>
           <span id="home-more-label">더보기</span>
         </button>
-        <div id="home-more-panel" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;">
+        <div id="home-more-panel" style="display:none;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">
           <button onclick="openCarryover()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
             <i class="fa-solid fa-forward" style="font-size:18px;color:#EF4444;"></i>
             <span style="font-size:10px;font-weight:700;color:var(--text);">미완료 이월</span>
-          </button>
-          <button onclick="openWeeklyReport()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
-            <i class="fa-solid fa-chart-bar" style="font-size:18px;color:#16A34A;"></i>
-            <span style="font-size:10px;font-weight:700;color:var(--text);">주간 리포트</span>
           </button>
           <button onclick="openReroute()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
             <i class="fa-solid fa-shuffle" style="font-size:18px;color:#EF4444;"></i>
@@ -794,6 +790,18 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
           <button onclick="openDNAModal()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
             <i class="fa-solid fa-dna" style="font-size:18px;color:var(--indigo);"></i>
             <span style="font-size:10px;font-weight:700;color:var(--text);">DNA 템플릿</span>
+          </button>
+          <button onclick="openWeeklyReport()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-solid fa-chart-bar" style="font-size:18px;color:#16A34A;"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">주간 리포트</span>
+          </button>
+          <button onclick="exportGoalsCSV()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-solid fa-file-csv" style="font-size:18px;color:#16A34A;"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">골 CSV</span>
+          </button>
+          <button onclick="exportWeeklyReport()" style="display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:10px 6px;cursor:pointer;">
+            <i class="fa-solid fa-share-nodes" style="font-size:18px;color:var(--indigo);"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text);">리포트 공유</span>
           </button>
         </div>
       </div>
@@ -1372,6 +1380,26 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <label class="lbl">메모</label>
         <textarea class="inp" id="block-notes" rows="2" placeholder="간단한 메모..."></textarea>
       </div>
+      <div id="block-recur-row">
+        <label class="lbl">반복</label>
+        <select class="inp" id="block-recur" onchange="updateBlockRecurUI()">
+          <option value="">반복 없음</option>
+          <option value="daily">매일</option>
+          <option value="weekdays">평일 (월~금)</option>
+          <option value="weekly">매주 (요일 선택)</option>
+        </select>
+        <div id="block-recur-days" style="display:none;margin-top:8px;">
+          <div class="day-chips">
+            <div class="day-chip" data-d="0" onclick="toggleDay(this)">일</div>
+            <div class="day-chip" data-d="1" onclick="toggleDay(this)">월</div>
+            <div class="day-chip" data-d="2" onclick="toggleDay(this)">화</div>
+            <div class="day-chip" data-d="3" onclick="toggleDay(this)">수</div>
+            <div class="day-chip" data-d="4" onclick="toggleDay(this)">목</div>
+            <div class="day-chip" data-d="5" onclick="toggleDay(this)">금</div>
+            <div class="day-chip" data-d="6" onclick="toggleDay(this)">토</div>
+          </div>
+        </div>
+      </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-block')">취소</button>
         <button class="btn btn-primary" style="flex:1;" onclick="saveBlock()">저장</button>
@@ -1601,7 +1629,19 @@ function deleteGoal(id){
 }
 
 function getAllPlans(){ try{ return JSON.parse(localStorage.getItem('b2_plans')||'[]'); }catch(e){ return []; } }
-function getPlans(date){ return getAllPlans().filter(function(p){ return p.plan_date===date; }); }
+function getPlans(date){
+  var all=getAllPlans();
+  var direct=all.filter(function(p){ return p.plan_date===date; });
+  var d=new Date(date+'T00:00:00'); var dow=d.getDay();
+  var recurring=all.filter(function(p){
+    if(!p.recur||p.plan_date===date) return false;
+    if(p.recur==='daily') return true;
+    if(p.recur==='weekdays') return dow>=1&&dow<=5;
+    if(p.recur==='weekly') return (p.recur_days||[]).indexOf(dow)>=0;
+    return false;
+  }).map(function(p){ return Object.assign({},p,{plan_date:date,id:p.id+'_r_'+date,_recurBase:p.id}); });
+  return direct.concat(recurring);
+}
 function upsertPlan(p){
   var arr=getAllPlans(), idx=arr.findIndex(function(x){ return x.id===p.id; });
   if(idx>=0) arr[idx]=p; else arr.push(p);
@@ -2500,6 +2540,12 @@ function tlNavDate(delta){
   renderTimeline();
 }
 
+function jumpToTimeline(ds){
+  tlDate=ds;
+  switchView('timeline');
+  renderTimeline();
+}
+
 /* ══════════════════════════════════════════
    CALENDAR VIEW
 ══════════════════════════════════════════ */
@@ -2694,13 +2740,15 @@ function renderCalMonth(){
       var dow=cell.date.getDay();
       var numClass='ac-date-num'+(isToday?' today':'')+(dow===0?' is-sun':dow===6?' is-sat':'');
       var fixedEv=getFixedForDate(ds);
-      var planEv=getPlans(ds);
-      var evHtml=fixedEv.slice(0,2).map(function(f){
-        return '<div class="ac-event-pill" style="background:'+(f.color||'#94a3b8')+';">'+escHtml(f.title)+'</div>';
-      }).join('')+planEv.slice(0,1).map(function(p){
-        return '<div class="ac-event-pill" style="background:'+(p.color||'#5B52E8')+';">'+escHtml(p.title)+'</div>';
-      }).join('');
-      html+='<div class="ac-cell" onclick="calDailyDate=new Date(\''+ds+'T00:00:00\');switchCalTab(\'daily\',document.querySelector(\'[data-caltab=daily]\'))">'
+      var planEv=getPlans(ds).filter(function(p){ return p.type!=='fixed'; });
+      var goalCount=planEv.filter(function(p){ return p.goal_id; }).length;
+      var pills=[].concat(
+        fixedEv.slice(0,1).map(function(f){ return '<div class="ac-event-pill" style="background:'+(f.color||'#94a3b8')+';">'+escHtml(f.title)+'</div>'; }),
+        planEv.slice(0,2).map(function(p){ return '<div class="ac-event-pill" style="background:'+(p.color||'#5B52E8')+';">'+(p.recur?'🔁 ':'')+escHtml(p.title)+'</div>'; })
+      );
+      var moreCount=(fixedEv.length>1?fixedEv.length-1:0)+(planEv.length>2?planEv.length-2:0);
+      var evHtml=pills.join('')+(moreCount>0?'<div style="font-size:9px;color:var(--muted);padding:1px 2px;">+'+moreCount+'개</div>':'');
+      html+='<div class="ac-cell" onclick="jumpToTimeline(\''+ds+'\')">'
         +'<div class="'+numClass+'">'+cell.date.getDate()+'</div>'
         +evHtml+'</div>';
     }
@@ -3428,6 +3476,10 @@ function openBlockAdd(mode){
   document.getElementById('block-goal-row').style.display=mode==='plan'?'':'none';
   document.getElementById('block-mood-row').style.display=mode==='track'?'':'none';
   document.getElementById('block-notes-row').style.display=mode==='track'?'':'none';
+  document.getElementById('block-recur-row').style.display=mode==='plan'?'':'none';
+  document.getElementById('block-recur').value='';
+  document.getElementById('block-recur-days').style.display='none';
+  document.querySelectorAll('#block-recur-days .day-chip').forEach(function(c){ c.classList.remove('on'); });
   setBlockMood(3);
   openModal('modal-block');
 }
@@ -3443,6 +3495,13 @@ function openBlockEdit(id, mode){
   document.getElementById('block-goal-row').style.display=mode==='plan'?'':'none';
   document.getElementById('block-mood-row').style.display=mode==='track'?'':'none';
   document.getElementById('block-notes-row').style.display=mode==='track'?'':'none';
+  document.getElementById('block-recur-row').style.display=mode==='plan'?'':'none';
+  if(mode==='plan'){
+    document.getElementById('block-recur').value=rec.recur||'';
+    var recurDays=rec.recur_days||[];
+    document.querySelectorAll('#block-recur-days .day-chip').forEach(function(c){ c.classList.toggle('on',recurDays.indexOf(parseInt(c.dataset.d))>=0); });
+    document.getElementById('block-recur-days').style.display=(rec.recur==='weekly')?'':'none';
+  }
   if(mode==='track'){
     setBlockMood(rec.mood||3);
     document.getElementById('block-notes').value=rec.notes||'';
@@ -3451,6 +3510,11 @@ function openBlockEdit(id, mode){
   document.getElementById('block-goal-id').innerHTML='<option value="">없음</option>'
     +goals.map(function(g){ return '<option value="'+g.id+'"'+(g.id===rec.goal_id?' selected':'')+'>'+escHtml(g.title)+'</option>'; }).join('');
   openModal('modal-block');
+}
+
+function updateBlockRecurUI(){
+  var v=document.getElementById('block-recur').value;
+  document.getElementById('block-recur-days').style.display=v==='weekly'?'':'none';
 }
 
 function setBlockMood(m){
@@ -3469,8 +3533,12 @@ function saveBlock(){
   if(_blockMode==='plan'){
     var goalId=document.getElementById('block-goal-id').value;
     var goal=goalId?getGoals().find(function(g){ return g.id===goalId; }):null;
+    var recur=document.getElementById('block-recur').value;
+    var recurDays=recur==='weekly'?Array.from(document.querySelectorAll('#block-recur-days .day-chip.on')).map(function(c){ return parseInt(c.dataset.d); }):[];
     var p={ id:_editBlockId||genId(), plan_date:tlDate, title:title, start_time:start, end_time:end,
-      goal_id:goalId||null, color:goal?goal.color:'#5B52E8', type:'goal', created_at:new Date().toISOString() };
+      goal_id:goalId||null, color:goal?goal.color:'#5B52E8', type:'goal',
+      recur:recur||null, recur_days:recurDays.length?recurDays:null,
+      created_at:new Date().toISOString() };
     upsertPlan(p);
   } else {
     var t={ id:_editBlockId||genId(), track_date:tlDate, title:title, start_time:start, end_time:end,
@@ -5204,6 +5272,64 @@ function onboardingNext(){
 function finishOnboarding(){
   localStorage.setItem('binder_onboarded','1');
   document.getElementById('modal-onboarding').classList.remove('open');
+}
+
+/* ══════════════════════════════════════════
+   EXPORT
+══════════════════════════════════════════ */
+function exportGoalsCSV(){
+  var goals=getGoals();
+  if(!goals.length){ showToast('내보낼 골이 없습니다'); return; }
+  var statusLabel={active:'진행중',backlog:'백로그',done:'완료'};
+  var typeLabel={category:'대분류',sub:'소분류',project:'프로젝트',short_job:'단기Job',recurring_job:'정기Job'};
+  var rows=[['ID','제목','타입','상태','우선순위','색상','부모ID','생성일']];
+  goals.forEach(function(g){
+    rows.push([g.id, g.title, typeLabel[g.type]||g.type, statusLabel[g.status]||g.status,
+      g.priority||'', g.color||'', g.parent_id||'', (g.created_at||'').slice(0,10)]);
+  });
+  var csv=rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='binder_goals_'+TODAY+'.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('📁 골 CSV 내보내기 완료!');
+}
+
+function exportWeeklyReport(){
+  var lines=['📊 바인더 주간 리포트 ('+TODAY+')',''];
+  var days=[];
+  for(var i=6;i>=0;i--){
+    var d=new Date(TODAY+'T00:00:00');
+    d.setDate(d.getDate()-i);
+    days.push(d.toISOString().slice(0,10));
+  }
+  var dayNames=['일','월','화','수','목','금','토'];
+  var totalPlan=0,totalDone=0;
+  days.forEach(function(ds){
+    var plans=getPlans(ds).filter(function(p){ return p.type!=='fixed'&&!p._recurBase; });
+    var tracks=getAllTracks().filter(function(t){ return t.track_date===ds; });
+    var planMin=plans.reduce(function(s,p){ return s+timeToMin(p.end_time)-timeToMin(p.start_time); },0);
+    var trackMin=tracks.reduce(function(s,t){ return s+timeToMin(t.end_time)-timeToMin(t.start_time); },0);
+    totalPlan+=planMin; totalDone+=trackMin;
+    var d2=new Date(ds+'T00:00:00');
+    lines.push(dayNames[d2.getDay()]+'('+ds.slice(5)+') 계획 '+minToHM(planMin)+' / 실제 '+minToHM(trackMin));
+  });
+  lines.push('');
+  lines.push('총 계획: '+minToHM(totalPlan));
+  lines.push('총 실행: '+minToHM(totalDone));
+  lines.push('달성률: '+(totalPlan>0?Math.round(totalDone/totalPlan*100):0)+'%');
+  lines.push('');
+  var activeGoals=getGoals().filter(function(g){ return g.status==='active'; });
+  var doneGoals=getGoals().filter(function(g){ return g.status==='done'&&(g.updated_at||'').slice(0,10)>=days[0]; });
+  lines.push('진행중 골: '+activeGoals.length+'개');
+  lines.push('이번 주 완료 골: '+doneGoals.length+'개');
+  var text=lines.join('\n');
+  if(navigator.share){
+    navigator.share({title:'바인더 주간 리포트',text:text}).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(text).then(function(){ showToast('📋 리포트 클립보드에 복사됐습니다!'); });
+  }
 }
 
 /* ══════════════════════════════════════════
