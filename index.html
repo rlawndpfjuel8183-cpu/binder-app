@@ -3449,6 +3449,143 @@ function openWeeklyReport(){
 ══════════════════════════════════════════ */
 var _voiceRecognition=null;
 
+var _voiceAudioCtx=null, _voiceAnalyser=null, _voiceAudioStream=null, _voiceAnimFrame=null, _voiceParticles=[];
+
+function _voiceInitAudio(){
+  if(_voiceAudioCtx) return;
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    _voiceAudioStream=stream;
+    _voiceAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    var src=_voiceAudioCtx.createMediaStreamSource(stream);
+    _voiceAnalyser=_voiceAudioCtx.createAnalyser();
+    _voiceAnalyser.fftSize=256;
+    src.connect(_voiceAnalyser);
+    _voiceStartCanvas();
+  }).catch(function(){});
+}
+
+function _voiceStartCanvas(){
+  var canvas=document.getElementById('vo-canvas');
+  if(!canvas) return;
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width, H=canvas.height;
+  var cx=W/2, cy=H/2;
+  var bufLen=_voiceAnalyser?_voiceAnalyser.frequencyBinCount:128;
+  var dataArr=new Uint8Array(bufLen);
+
+  /* 파티클 초기화 */
+  _voiceParticles=[];
+  for(var i=0;i<80;i++){
+    _voiceParticles.push({
+      x:cx+(Math.random()-0.5)*W*0.9,
+      y:cy+(Math.random()-0.5)*H*0.9,
+      r:Math.random()*2+0.5,
+      vx:(Math.random()-0.5)*0.4,
+      vy:(Math.random()-0.5)*0.4,
+      alpha:Math.random()*0.6+0.2,
+      hue:Math.random()*60+220
+    });
+  }
+
+  function draw(){
+    var ov=document.getElementById('voice-overlay');
+    if(!ov||ov.style.display==='none'){ _voiceAnimFrame=null; return; }
+    _voiceAnimFrame=requestAnimationFrame(draw);
+
+    /* 볼륨 */
+    var vol=0;
+    if(_voiceAnalyser && !ov.classList.contains('done')){
+      _voiceAnalyser.getByteFrequencyData(dataArr);
+      for(var k=0;k<bufLen;k++) vol+=dataArr[k];
+      vol=vol/(bufLen*255);
+    }
+
+    /* 배경 페이드 */
+    ctx.fillStyle='rgba(4,4,18,0.18)';
+    ctx.fillRect(0,0,W,H);
+
+    /* 성운 빛 */
+    var glow=ctx.createRadialGradient(cx,cy,0,cx,cy,260+vol*160);
+    if(ov.classList.contains('done')){
+      glow.addColorStop(0,'rgba(16,185,129,0.18)');
+      glow.addColorStop(0.5,'rgba(52,211,153,0.06)');
+    } else {
+      glow.addColorStop(0,'rgba(120,80,255,0.22)');
+      glow.addColorStop(0.4,'rgba(80,40,200,0.1)');
+    }
+    glow.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=glow;
+    ctx.fillRect(0,0,W,H);
+
+    /* 파티클 */
+    _voiceParticles.forEach(function(p){
+      var pull=vol*2;
+      p.vx+=(cx-p.x)*0.0004*pull;
+      p.vy+=(cy-p.y)*0.0004*pull;
+      p.x+=p.vx; p.y+=p.vy;
+      p.vx*=0.995; p.vy*=0.995;
+      /* 화면 밖 나가면 반대편 */
+      if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+      var a=p.alpha*(0.5+vol*1.5);
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r*(1+vol*3),0,Math.PI*2);
+      ctx.fillStyle='hsla('+p.hue+',90%,80%,'+Math.min(a,0.9)+')';
+      ctx.fill();
+    });
+
+    /* 오비탈 링 */
+    var rings=[{r:90,speed:0.008,dash:[4,10]},{r:130,speed:-0.005,dash:[2,16]},{r:170,speed:0.003,dash:[1,22]}];
+    var now=Date.now()/1000;
+    rings.forEach(function(ring){
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.rotate(now*ring.speed*Math.PI*2);
+      ctx.beginPath();
+      ctx.arc(0,0,ring.r+vol*30,0,Math.PI*2);
+      ctx.setLineDash(ring.dash);
+      var ringColor=ov.classList.contains('done')?'rgba(52,211,153,':'rgba(147,100,255,';
+      ctx.strokeStyle=ringColor+(0.18+vol*0.4)+')';
+      ctx.lineWidth=1;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    /* 오디오 파형 (원형 radial) */
+    if(_voiceAnalyser && !ov.classList.contains('done')){
+      _voiceAnalyser.getByteTimeDomainData(dataArr);
+      var sliceW=Math.PI*2/bufLen;
+      var baseR=80;
+      ctx.beginPath();
+      for(var i2=0;i2<bufLen;i2++){
+        var v=(dataArr[i2]/128)-1;
+        var r=baseR+v*60*(0.3+vol*2);
+        var angle=i2*sliceW-Math.PI/2;
+        var px2=cx+r*Math.cos(angle);
+        var py2=cy+r*Math.sin(angle);
+        if(i2===0) ctx.moveTo(px2,py2); else ctx.lineTo(px2,py2);
+      }
+      ctx.closePath();
+      var wg=ctx.createLinearGradient(cx-100,cy-100,cx+100,cy+100);
+      wg.addColorStop(0,'rgba(180,120,255,0.7)');
+      wg.addColorStop(1,'rgba(80,200,255,0.7)');
+      ctx.strokeStyle=wg;
+      ctx.lineWidth=2;
+      ctx.setLineDash([]);
+      ctx.stroke();
+    } else if(ov.classList.contains('done')){
+      /* done: 잔잔한 원 */
+      ctx.beginPath();
+      ctx.arc(cx,cy,82,0,Math.PI*2);
+      ctx.strokeStyle='rgba(52,211,153,0.5)';
+      ctx.lineWidth=2;
+      ctx.setLineDash([]);
+      ctx.stroke();
+    }
+  }
+  draw();
+}
+
 function showVoiceOverlay(state, text){
   var ov=document.getElementById('voice-overlay');
   if(!ov){
@@ -3456,45 +3593,33 @@ function showVoiceOverlay(state, text){
     ov.id='voice-overlay';
     ov.innerHTML=
       '<style>'
-      +'@keyframes voiceRing{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.5);opacity:0}}'
-      +'@keyframes voiceBar{0%,100%{height:8px}50%{height:48px}}'
-      +'#voice-overlay{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;transition:opacity .4s;}'
-      +'#voice-overlay .vo-bg{position:absolute;inset:0;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);background:rgba(10,10,30,.82);}'
-      +'#voice-overlay .vo-content{position:relative;display:flex;flex-direction:column;align-items:center;gap:32px;}'
-      +'#voice-overlay .vo-mic{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#5B52E8,#8B85F0);display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;}'
-      +'#voice-overlay .vo-ring{position:absolute;inset:-12px;border-radius:50%;border:3px solid rgba(91,82,232,.5);animation:voiceRing 1.4s ease-in-out infinite;}'
-      +'#voice-overlay .vo-ring2{position:absolute;inset:-24px;border-radius:50%;border:2px solid rgba(91,82,232,.3);animation:voiceRing 1.4s ease-in-out infinite .3s;}'
-      +'#voice-overlay .vo-bars{display:flex;align-items:center;gap:5px;height:56px;}'
-      +'#voice-overlay .vo-bar{width:5px;border-radius:99px;background:#8B85F0;animation:voiceBar 0.8s ease-in-out infinite;}'
-      +'#voice-overlay .vo-bar:nth-child(1){animation-delay:0s}'
-      +'#voice-overlay .vo-bar:nth-child(2){animation-delay:.1s}'
-      +'#voice-overlay .vo-bar:nth-child(3){animation-delay:.2s}'
-      +'#voice-overlay .vo-bar:nth-child(4){animation-delay:.3s}'
-      +'#voice-overlay .vo-bar:nth-child(5){animation-delay:.4s}'
-      +'#voice-overlay .vo-bar:nth-child(6){animation-delay:.3s}'
-      +'#voice-overlay .vo-bar:nth-child(7){animation-delay:.2s}'
-      +'#voice-overlay .vo-bar:nth-child(8){animation-delay:.1s}'
-      +'#voice-overlay .vo-bar:nth-child(9){animation-delay:0s}'
-      +'#voice-overlay .vo-label{color:#fff;font-size:18px;font-weight:700;letter-spacing:-.01em;text-align:center;max-width:280px;line-height:1.5;}'
-      +'#voice-overlay .vo-sub{color:rgba(255,255,255,.5);font-size:13px;text-align:center;}'
-      +'#voice-overlay .vo-cancel{margin-top:8px;background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:99px;padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;}'
-      +'#voice-overlay.done .vo-mic{background:linear-gradient(135deg,#10b981,#34d399);}'
-      +'#voice-overlay.done .vo-ring,#voice-overlay.done .vo-ring2{animation:none;opacity:0;}'
-      +'#voice-overlay.done .vo-bar{animation:none;height:8px;background:#34d399;}'
+      +'#voice-overlay{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s;}'
+      +'#vo-canvas{position:absolute;inset:0;width:100%;height:100%;}'
+      +'#voice-overlay .vo-content{position:relative;display:flex;flex-direction:column;align-items:center;gap:28px;pointer-events:none;}'
+      +'#voice-overlay .vo-orb{width:100px;height:100px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;background:radial-gradient(circle at 35% 35%,rgba(180,130,255,0.35),rgba(60,20,140,0.6));box-shadow:0 0 40px rgba(140,80,255,0.5),0 0 80px rgba(100,60,200,0.25),inset 0 0 20px rgba(255,255,255,0.08);backdrop-filter:blur(4px);transition:background .6s,box-shadow .6s;}'
+      +'#voice-overlay.done .vo-orb{background:radial-gradient(circle at 35% 35%,rgba(100,255,180,0.35),rgba(10,80,50,0.6));box-shadow:0 0 40px rgba(52,211,153,0.5),0 0 80px rgba(16,185,129,0.25),inset 0 0 20px rgba(255,255,255,0.08);}'
+      +'#voice-overlay .vo-label{color:#fff;font-size:20px;font-weight:700;letter-spacing:.05em;text-align:center;max-width:300px;line-height:1.5;text-shadow:0 0 20px rgba(180,130,255,0.8);}'
+      +'#voice-overlay.done .vo-label{text-shadow:0 0 20px rgba(52,211,153,0.8);}'
+      +'#voice-overlay .vo-sub{color:rgba(200,180,255,0.65);font-size:13px;text-align:center;letter-spacing:.03em;}'
+      +'#voice-overlay.done .vo-sub{color:rgba(100,255,180,0.7);}'
+      +'#voice-overlay .vo-cancel{pointer-events:auto;margin-top:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);border-radius:99px;padding:10px 32px;font-size:14px;font-weight:500;cursor:pointer;letter-spacing:.03em;backdrop-filter:blur(8px);transition:background .2s;}'
+      +'#voice-overlay .vo-cancel:hover{background:rgba(255,255,255,0.15);}'
       +'</style>'
-      +'<div class="vo-bg"></div>'
+      +'<canvas id="vo-canvas"></canvas>'
       +'<div class="vo-content">'
-      +'  <div class="vo-mic"><div class="vo-ring"></div><div class="vo-ring2"></div>🎤</div>'
-      +'  <div class="vo-bars">'
-      +'    <div class="vo-bar"></div><div class="vo-bar"></div><div class="vo-bar"></div>'
-      +'    <div class="vo-bar"></div><div class="vo-bar"></div><div class="vo-bar"></div>'
-      +'    <div class="vo-bar"></div><div class="vo-bar"></div><div class="vo-bar"></div>'
-      +'  </div>'
+      +'  <div class="vo-orb">🎙️</div>'
       +'  <div class="vo-label">말씀하세요</div>'
       +'  <div class="vo-sub">골이나 일정 내용을 자연스럽게 말해주세요</div>'
       +'  <button class="vo-cancel" onclick="if(window._voiceRecognition)window._voiceRecognition.stop();hideVoiceOverlay();">취소</button>'
       +'</div>';
     document.body.appendChild(ov);
+    /* canvas 크기 맞추기 */
+    var c=document.getElementById('vo-canvas');
+    c.width=window.innerWidth; c.height=window.innerHeight;
+    /* 배경 초기 채우기 */
+    var ctx2=c.getContext('2d');
+    ctx2.fillStyle='rgba(4,4,18,1)';
+    ctx2.fillRect(0,0,c.width,c.height);
   }
   var label=ov.querySelector('.vo-label');
   var sub=ov.querySelector('.vo-sub');
@@ -3502,6 +3627,9 @@ function showVoiceOverlay(state, text){
     ov.classList.remove('done');
     label.textContent='말씀하세요';
     sub.textContent='골이나 일정 내용을 자연스럽게 말해주세요';
+    _voiceInitAudio();
+    /* 오디오 없이도 canvas 루프 시작 */
+    if(!_voiceAnimFrame) _voiceStartCanvas();
   } else if(state==='done'){
     ov.classList.add('done');
     label.textContent='"'+text+'"';
@@ -3512,7 +3640,10 @@ function showVoiceOverlay(state, text){
 }
 function hideVoiceOverlay(){
   var ov=document.getElementById('voice-overlay');
-  if(ov){ ov.style.opacity='0'; setTimeout(function(){ if(ov) ov.style.display='none'; ov && ov.classList.remove('done'); },400); }
+  if(ov){ ov.style.opacity='0'; setTimeout(function(){ if(ov) ov.style.display='none'; ov && ov.classList.remove('done'); },500); }
+  if(_voiceAnimFrame){ cancelAnimationFrame(_voiceAnimFrame); _voiceAnimFrame=null; }
+  if(_voiceAudioStream){ _voiceAudioStream.getTracks().forEach(function(t){t.stop();}); _voiceAudioStream=null; }
+  if(_voiceAudioCtx){ _voiceAudioCtx.close(); _voiceAudioCtx=null; _voiceAnalyser=null; }
 }
 
 function startVoiceCapture(){
