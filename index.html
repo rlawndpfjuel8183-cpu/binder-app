@@ -1405,15 +1405,18 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 
 <!-- ═══ 미완료 이월 모달 ═══ -->
 <div class="modal-overlay" id="modal-carryover" onclick="closeModal('modal-carryover',event)">
-  <div class="modal-box" style="max-height:85vh;display:flex;flex-direction:column;">
+  <div class="modal-box" style="max-height:88vh;display:flex;flex-direction:column;">
     <div class="modal-handle"></div>
-    <div class="modal-title">🌙 미완료 항목 검토</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">각 항목을 이월하거나 버릴 수 있어요.</p>
-    <div id="carryover-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div class="modal-title" style="margin-bottom:0;">🌙 미완료 항목 검토</div>
+      <span id="carryover-badge" style="font-size:11px;color:var(--muted);"></span>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">어제 못한 항목을 내일로 이월하거나 버릴 수 있어요.</p>
+    <div id="carryover-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-carryover')">닫기</button>
-      <button class="btn btn-primary" style="flex:1;" onclick="applyAllCarryover()">
-        <i class="fa-solid fa-check-double"></i> 선택 이월 적용
+      <button class="btn btn-primary" style="flex:1;" onclick="carryoverAll()">
+        <i class="fa-solid fa-forward-fast"></i> 전체 이월
       </button>
     </div>
   </div>
@@ -1421,20 +1424,46 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 
 <!-- ═══ 저녁 플래닝 모달 ═══ -->
 <div class="modal-overlay" id="modal-evening" onclick="closeModal('modal-evening',event)">
-  <div class="modal-box" style="max-height:88vh;display:flex;flex-direction:column;">
+  <div class="modal-box" style="max-height:92vh;display:flex;flex-direction:column;">
     <div class="modal-handle"></div>
     <div class="modal-title">🌆 저녁 플래닝</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">내일 진행할 골을 활성화하고 타임라인을 준비하세요.</p>
-    <div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:700;color:var(--indigo);margin-bottom:6px;">📅 내일 날짜</div>
-      <div id="evening-tomorrow-date" style="font-size:15px;font-weight:700;"></div>
+    <!-- 내일 요약 헤더 -->
+    <div style="background:var(--indigo);border-radius:12px;padding:12px 14px;margin-bottom:14px;color:#fff;">
+      <div style="font-size:11px;font-weight:700;opacity:.8;margin-bottom:2px;">내일</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;">
+        <div id="evening-tomorrow-date" style="font-size:16px;font-weight:800;"></div>
+        <div id="evening-free-slots" style="font-size:11px;opacity:.85;"></div>
+      </div>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">진행 중 골</div>
-    <div id="evening-goal-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+    <!-- 탭 -->
+    <div style="display:flex;gap:0;background:var(--s2);border-radius:10px;padding:3px;margin-bottom:12px;">
+      <button id="ev-tab-goal" style="flex:1;padding:6px;border:none;border-radius:8px;font-size:12px;font-weight:700;background:var(--s1);color:var(--text);cursor:pointer;" onclick="switchEveningTab('goal')">🎯 골 활성화</button>
+      <button id="ev-tab-add" style="flex:1;padding:6px;border:none;border-radius:8px;font-size:12px;font-weight:700;background:transparent;color:var(--muted);cursor:pointer;" onclick="switchEveningTab('add')">➕ 일정 추가</button>
+    </div>
+    <!-- 골 탭 -->
+    <div id="ev-pane-goal" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+      <div id="evening-goal-list"></div>
+    </div>
+    <!-- 일정 추가 탭 -->
+    <div id="ev-pane-add" style="flex:1;overflow-y:auto;display:none;flex-direction:column;gap:10px;margin-bottom:12px;">
+      <div id="evening-slot-list"></div>
+      <div style="background:var(--s2);border-radius:10px;padding:12px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">빠른 추가</div>
+        <input id="ev-title" class="input" placeholder="할 일 제목" style="margin-bottom:8px;"/>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input id="ev-start" class="input" type="time" style="flex:1;"/>
+          <span style="line-height:36px;color:var(--muted);">~</span>
+          <input id="ev-end" class="input" type="time" style="flex:1;"/>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="eveningAddPlan()">
+          <i class="fa-solid fa-plus"></i> 내일 일정에 추가
+        </button>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-evening')">닫기</button>
       <button class="btn btn-primary" style="flex:1;" onclick="closeModal('modal-evening');switchView('timeline');tlDate=getTomorrow();renderTimeline();">
-        <i class="fa-solid fa-calendar-plus"></i> 타임라인 열기
+        <i class="fa-solid fa-calendar-days"></i> 내일 타임라인
       </button>
     </div>
   </div>
@@ -1634,7 +1663,7 @@ function switchView(name){
   if(el) el.classList.add('active');
   document.querySelectorAll('.sb-item').forEach(function(b){ b.classList.toggle('on', b.dataset.view===name); });
   document.querySelectorAll('.gnb-btn').forEach(function(b){ b.classList.toggle('on', b.dataset.view===name); });
-  if(name==='home') renderHome();
+  if(name==='home'){ renderHome(); checkCarryoverOnLoad(); }
   if(name==='goal') renderGoals();
   if(name==='timeline') renderTimeline();
   if(name==='cal') renderCalendar();
@@ -3264,40 +3293,70 @@ async function setupPushNotifications(){
 }
 var _notifTimers=[];
 function scheduleNotifications(){
-  // 기존 타이머 초기화
   _notifTimers.forEach(function(t){ clearTimeout(t); });
   _notifTimers=[];
+  if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
   var plans=getPlans(TODAY);
   var now=new Date();
+  var swReady='serviceWorker' in navigator && navigator.serviceWorker.controller;
+
+  function notify(title, body, tag){
+    if(swReady){
+      navigator.serviceWorker.controller.postMessage({type:'NOTIFY',title:title,body:body,tag:tag});
+    } else {
+      try{ new Notification(title,{body:body,tag:tag,icon:'/binder-app/icons/icon-192.png'}); }catch(e){}
+    }
+  }
+
   plans.forEach(function(p){
+    if(p.done) return;
     var start=new Date(TODAY+'T'+p.start_time+':00');
-    // 5분 전 알림
-    var t1=new Date(start.getTime()-5*60000);
-    var d1=t1-now;
-    if(d1>0){
-      _notifTimers.push(setTimeout(function(){
-        new Notification('⏰ 곧 시작해요!',{body:'5분 후: '+p.title+' ('+p.start_time+')',icon:'/favicon.ico',tag:'binder-'+p.id+'-pre'});
-      },d1));
-    }
-    // 정시 알림
-    var d2=start-now;
-    if(d2>0){
-      _notifTimers.push(setTimeout(function(){
-        new Notification('🚀 지금 시작!',{body:p.title+' 시작 시간입니다!',icon:'/favicon.ico',tag:'binder-'+p.id+'-start'});
-      },d2));
-    }
+    var pre=new Date(start.getTime()-5*60000);
+    var d1=pre-now, d2=start-now;
+    if(d1>0) _notifTimers.push(setTimeout(function(){ notify('⏰ 곧 시작해요!','5분 후: '+p.title+' ('+p.start_time+')','binder-'+p.id+'-pre'); },d1));
+    if(d2>0) _notifTimers.push(setTimeout(function(){ notify('🚀 지금 시작!',p.title+' 시작 시간입니다!','binder-'+p.id+'-start'); },d2));
   });
-  if(plans.length>0) console.log('[바인더] 알림 '+plans.length+'개 예약됨');
+  if(plans.length>0) console.log('[바인더] 알림 예약: '+plans.length+'개');
 }
 
 /* ══════════════════════════════════════════
-   2순위: 미완료 이월 시스템
+   1순위: 미완료 이월 시스템
 ══════════════════════════════════════════ */
 function getYesterday(){
   var d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10);
 }
 function getTomorrow(){
   var d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10);
+}
+
+function _getIncomplete(dateStr){
+  var plans=getPlans(dateStr).filter(function(p){ return p.type!=='fixed'; });
+  var tracks=getTracks(dateStr);
+  return plans.filter(function(p){
+    return !p.done && !tracks.some(function(t){ return t.plan_id===p.id||t.title===p.title; });
+  });
+}
+
+function checkCarryoverOnLoad(){
+  // 앱 로드 시 어제 미완료 항목 있으면 배너 표시
+  var yesterday=getYesterday();
+  var lastCheck=localStorage.getItem('binder_carryover_check');
+  if(lastCheck===TODAY) return; // 오늘 이미 확인함
+  var incomplete=_getIncomplete(yesterday);
+  if(incomplete.length===0){ localStorage.setItem('binder_carryover_check',TODAY); return; }
+  // 스마트 알림 영역에 배너 추가
+  var alerts=document.getElementById('home-smart-alerts');
+  if(!alerts) return;
+  var banner=document.createElement('div');
+  banner.id='carryover-banner';
+  banner.style.cssText='background:linear-gradient(135deg,#7c3aed,#5B52E8);color:#fff;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;';
+  banner.innerHTML='<i class="fa-solid fa-forward-fast" style="font-size:18px;flex-shrink:0;"></i>'
+    +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">어제 미완료 '+incomplete.length+'개</div>'
+    +'<div style="font-size:11px;opacity:.85;">탭해서 이월 여부를 결정해보세요</div></div>'
+    +'<i class="fa-solid fa-chevron-right" style="opacity:.7;"></i>';
+  banner.onclick=function(){ openCarryover(); };
+  alerts.style.display='flex';
+  alerts.insertBefore(banner, alerts.firstChild);
 }
 
 function openCarryover(){
@@ -3307,109 +3366,209 @@ function openCarryover(){
 
 function renderCarryoverList(){
   var yesterday=getYesterday();
-  var plans=getPlans(yesterday).filter(function(p){ return p.type!=='fixed'; });
-  var tracks=getTracks(yesterday);
-  // 미완료 = 플랜에 있는데 트래커에 기록 없는 것
-  var incomplete=plans.filter(function(p){
-    return !tracks.some(function(t){ return t.plan_id===p.id||t.title===p.title; });
-  });
+  var incomplete=_getIncomplete(yesterday);
+  var badge=document.getElementById('carryover-badge');
+  if(badge) badge.textContent=incomplete.length>0?incomplete.length+'개':'';
   var el=document.getElementById('carryover-list');
   if(incomplete.length===0){
-    el.innerHTML='<div class="empty-state" style="padding:24px;"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i><p>미완료 항목이 없어요!<br/>어제도 훌륭하셨군요 🎉</p></div>';
+    el.innerHTML='<div class="empty-state" style="padding:28px;"><i class="fa-solid fa-circle-check" style="font-size:28px;color:#22c55e;margin-bottom:8px;"></i><p>미완료 항목이 없어요!<br/>어제도 훌륭하셨군요 🎉</p></div>';
     return;
   }
-  el.innerHTML=incomplete.map(function(p,i){
-    return '<div style="background:var(--s2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;">'
-      +'<div style="display:flex;align-items:center;gap:8px;">'
-      +'<div style="width:3px;height:32px;border-radius:2px;background:'+(p.color||'var(--indigo)')+';flex-shrink:0;"></div>'
-      +'<div style="flex:1;">'
-      +'<div style="font-size:14px;font-weight:700;">'+escHtml(p.title)+'</div>'
-      +'<div style="font-size:11px;color:var(--muted);">'+p.start_time+' – '+p.end_time+'</div>'
-      +'</div></div>'
-      +'<div style="display:flex;gap:6px;">'
-      +'<button class="btn btn-secondary btn-sm" style="flex:1;border-color:var(--rose);color:var(--rose);" onclick="discardCarryover('+i+',this.closest(\'div[style]\'))">'
-      +'<i class="fa-solid fa-trash-can"></i> 버리기</button>'
-      +'<button class="btn btn-primary btn-sm" style="flex:1;" onclick="deferCarryover(\''+p.id+'\',\''+escHtml(p.title)+'\',\''+p.start_time+'\',\''+p.end_time+'\',\''+i+'\',this.closest(\'div[style]\'))">'
-      +'<i class="fa-solid fa-forward"></i> 이월</button>'
-      +'</div></div>';
+  el.innerHTML=incomplete.map(function(p){
+    var dur=timeToMin(p.end_time)-timeToMin(p.start_time);
+    var tomorrow=getTomorrow();
+    var slots=getFreeSlots(tomorrow).filter(function(sl){ return sl.e-sl.s>=dur; });
+    var slotHint=slots.length>0?'내일 '+minToTime(slots[0].s)+' 슬롯 있음':'내일 빈 슬롯 없음';
+    var goalId=p.goal_id||'';
+    var goalTitle='';
+    if(goalId){ var gObj=getGoals().find(function(g){ return g.id===goalId; }); if(gObj) goalTitle=gObj.title; }
+    return '<div class="co-item" data-id="'+p.id+'" data-goal-id="'+goalId+'" data-title="'+escHtml(p.title)+'" data-start="'+p.start_time+'" data-end="'+p.end_time+'" data-status="" style="background:var(--s2);border-radius:12px;padding:12px 14px;border:1.5px solid var(--bdr);">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+        +'<div style="width:4px;height:36px;border-radius:2px;background:'+(p.color||'#5B52E8')+';flex-shrink:0;"></div>'
+        +'<div style="flex:1;">'
+          +'<div style="font-size:14px;font-weight:700;">'+escHtml(p.title)+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);">'+p.start_time+' – '+p.end_time+' · '+slotHint+'</div>'
+          +(goalTitle?'<div style="font-size:11px;color:var(--indigo);margin-top:2px;"><i class="fa-solid fa-bullseye" style="font-size:9px;"></i> '+escHtml(goalTitle)+'</div>':'')
+        +'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:5px;">'
+        +'<button class="btn btn-sm" style="flex:1;border:1.5px solid #ef4444;color:#ef4444;background:transparent;font-size:11px;" onclick="setCarryoverStatus(this,\'discard\')">'
+          +'<i class="fa-solid fa-trash-can"></i> 버리기</button>'
+        +'<button class="btn btn-sm" style="flex:1;border:1.5px solid var(--indigo);color:var(--indigo);background:transparent;font-size:11px;" onclick="setCarryoverStatus(this,\'defer\')">'
+          +'<i class="fa-solid fa-forward"></i> 이월</button>'
+        +(goalId?'<button class="btn btn-sm" style="flex:1;border:1.5px solid #6b7280;color:#6b7280;background:transparent;font-size:11px;" onclick="setCarryoverStatus(this,\'cancel-goal\')">'
+          +'<i class="fa-solid fa-ban"></i> 골 취소</button>':'')
+      +'</div>'
+    +'</div>';
   }).join('');
 }
 
-function deferCarryover(planId, title, startTime, endTime, idx, el){
+function setCarryoverStatus(btn, status){
+  var item=btn.closest('.co-item');
+  if(!item) return;
+  var prev=item.dataset.status;
+  if(prev===status){ // 토글 해제
+    item.dataset.status='';
+    item.style.opacity='1';
+    item.querySelectorAll('button').forEach(function(b){ b.style.opacity='1'; });
+    return;
+  }
+  item.dataset.status=status;
+  if(status==='discard'){
+    item.style.borderColor='#ef4444'; item.style.opacity='0.6';
+    btn.style.opacity='1'; btn.previousElementSibling&&(btn.previousElementSibling.style.opacity='0.4');
+  } else {
+    item.style.borderColor='var(--indigo)'; item.style.opacity='1';
+    btn.style.opacity='1'; btn.nextElementSibling&&(btn.nextElementSibling.style.opacity='0.4');
+  }
+}
+
+function carryoverAll(){
+  var items=document.querySelectorAll('.co-item');
   var tomorrow=getTomorrow();
-  var dur=timeToMin(endTime)-timeToMin(startTime);
-  // 내일 첫 번째 빈 슬롯 찾기
-  var slots=getFreeSlots(tomorrow).filter(function(sl){ return sl.e-sl.s>=dur; });
-  var slot=slots[0];
-  var newStart=slot?minToTime(slot.s):startTime;
-  var newEnd=slot?minToTime(slot.s+dur):endTime;
-  var newPlan={
-    id:genId(), plan_date:tomorrow,
-    title:title, start_time:newStart, end_time:newEnd,
-    color:'#5B52E8', type:'plan', goal_id:null
-  };
-  upsertPlan(newPlan);
-  Promise.resolve(supa.from('plans').upsert(newPlan)).catch(function(){});
-  if(el && el.style) { el.style.opacity='0.4'; el.style.pointerEvents='none'; }
-  var deferBtn = el && el.querySelector ? el.querySelector('button:last-child') : null;
-  if(deferBtn) deferBtn.textContent='✓ '+minToTime(slot?slot.s:timeToMin(startTime))+' 이월됨';
-  showToast('내일 '+newStart+'에 이월됐습니다!');
-}
-
-function discardCarryover(idx, el){
-  if(el && el.style) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
-  var discardBtn = el && el.querySelector ? el.querySelector('button:first-child') : null;
-  if(discardBtn) discardBtn.textContent='✓ 버림';
-}
-
-function applyAllCarryover(){
+  var deferred=0, discarded=0, cancelled=0;
+  var cancelledGoalIds=[];
+  items.forEach(function(item){
+    var status=item.dataset.status||'defer'; // 상태 미선택 → 기본 이월
+    var title=item.dataset.title;
+    var startTime=item.dataset.start;
+    var endTime=item.dataset.end;
+    var goalId=item.dataset.goalId;
+    if(status==='discard'){ discarded++; return; }
+    if(status==='cancel-goal'){
+      cancelled++;
+      if(goalId && cancelledGoalIds.indexOf(goalId)===-1){
+        cancelledGoalIds.push(goalId);
+        var goals=getGoals();
+        var g=goals.find(function(x){ return x.id===goalId; });
+        if(g){ g.status='cancelled'; upsertGoal(g); }
+      }
+      return;
+    }
+    var dur=timeToMin(endTime)-timeToMin(startTime);
+    var slots=getFreeSlots(tomorrow).filter(function(sl){ return sl.e-sl.s>=dur; });
+    var slot=slots[0];
+    var newStart=slot?minToTime(slot.s):startTime;
+    var newEnd=slot?minToTime(slot.s+dur):endTime;
+    upsertPlan({id:genId(),plan_date:tomorrow,title:title,start_time:newStart,end_time:newEnd,color:'#5B52E8',type:'plan'});
+    deferred++;
+  });
+  localStorage.setItem('binder_carryover_check',TODAY);
+  var banner=document.getElementById('carryover-banner');
+  if(banner) banner.remove();
+  var alerts=document.getElementById('home-smart-alerts');
+  if(alerts&&!alerts.children.length) alerts.style.display='none';
   closeModal('modal-carryover');
-  showToast('이월 처리가 완료됐습니다!');
+  var msg='이월 '+deferred+'개 · 버리기 '+discarded+'개';
+  if(cancelled>0) msg+=' · 골 취소 '+cancelled+'개';
+  showToast(msg+' 완료!');
   renderHome();
 }
 
 /* ══════════════════════════════════════════
-   4순위: 저녁 플래닝 모드
+   2순위: 저녁 플래닝 모드
 ══════════════════════════════════════════ */
+var _evTab='goal';
+function switchEveningTab(tab){
+  _evTab=tab;
+  document.getElementById('ev-tab-goal').style.background=tab==='goal'?'var(--s1)':'transparent';
+  document.getElementById('ev-tab-goal').style.color=tab==='goal'?'var(--text)':'var(--muted)';
+  document.getElementById('ev-tab-add').style.background=tab==='add'?'var(--s1)':'transparent';
+  document.getElementById('ev-tab-add').style.color=tab==='add'?'var(--text)':'var(--muted)';
+  document.getElementById('ev-pane-goal').style.display=tab==='goal'?'flex':'none';
+  document.getElementById('ev-pane-add').style.display=tab==='add'?'flex':'none';
+}
+
 function openEveningPlanning(){
   var tomorrow=getTomorrow();
   var d=new Date(tomorrow+'T00:00:00');
   var days=['일','월','화','수','목','금','토'];
   document.getElementById('evening-tomorrow-date').textContent=
-    (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+') 플래닝';
-  var goals=getGoals().filter(function(g){ return g.status!=='done'; });
-  var el=document.getElementById('evening-goal-list');
-  if(goals.length===0){
-    el.innerHTML='<div class="empty-state" style="padding:20px;"><p>골을 먼저 추가해보세요!</p></div>';
-  } else {
-    el.innerHTML=goals.map(function(g){
-      var isActive=g.status==='active';
-      var color=g.color||'#5B52E8';
-      var prog=calcGoalProgress(g.id);
-      return '<div style="display:flex;align-items:center;gap:10px;background:var(--s2);border-radius:10px;padding:10px 12px;cursor:pointer;" onclick="toggleEveningGoal(\''+g.id+'\',this)">'
-        +'<div style="width:14px;height:14px;border-radius:50%;border:2px solid '+color+';background:'+(isActive?color:'transparent')+';flex-shrink:0;" id="evening-dot-'+g.id+'"></div>'
-        +'<div style="flex:1;">'
-        +'<div style="font-size:13px;font-weight:700;">'+escHtml(g.title)+'</div>'
-        +(prog!==null?'<div style="font-size:11px;color:var(--muted);">진행 '+prog+'%</div>':'')
-        +'</div>'
-        +'<span class="badge '+(isActive?'badge-indigo':'badge-gray')+'" id="evening-badge-'+g.id+'">'+(isActive?'진행중':'대기')+'</span>'
+    (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')';
+
+  // 내일 빈 슬롯 요약
+  var slots=getFreeSlots(tomorrow).filter(function(s){ return s.e-s.s>=30; });
+  var freeMin=slots.reduce(function(acc,s){ return acc+(s.e-s.s); },0);
+  document.getElementById('evening-free-slots').textContent=
+    slots.length>0?'빈 슬롯 '+slots.length+'개 · '+minToHM(freeMin):'빈 시간 없음';
+
+  // 골 탭 렌더
+  _renderEveningGoals();
+
+  // 일정 추가 탭 — 빈 슬롯 목록
+  var slotEl=document.getElementById('evening-slot-list');
+  if(slots.length>0){
+    slotEl.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;">내일 빈 슬롯</div>'
+      +slots.slice(0,5).map(function(s){
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border-radius:8px;margin-bottom:6px;cursor:pointer;" onclick="prefillEveningSlot(\''+minToTime(s.s)+'\',\''+minToTime(s.e)+'\')">'
+          +'<i class="fa-regular fa-clock" style="color:var(--muted);font-size:12px;"></i>'
+          +'<span style="font-size:13px;font-weight:600;">'+minToTime(s.s)+' – '+minToTime(s.e)+'</span>'
+          +'<span style="font-size:11px;color:var(--muted);margin-left:auto;">'+minToHM(s.e-s.s)+'</span>'
         +'</div>';
-    }).join('');
+      }).join('');
+  } else {
+    slotEl.innerHTML='<div class="empty-state" style="padding:16px;"><p>내일 빈 슬롯이 없습니다</p></div>';
   }
+
+  switchEveningTab('goal');
   openModal('modal-evening');
 }
 
-function toggleEveningGoal(id, el){
+function _renderEveningGoals(){
+  var goals=getGoals().filter(function(g){ return g.status!=='done'&&g.status!=='cancelled'; });
+  var el=document.getElementById('evening-goal-list');
+  if(goals.length===0){
+    el.innerHTML='<div class="empty-state" style="padding:20px;"><p>골을 먼저 추가해보세요!</p></div>';
+    return;
+  }
+  el.innerHTML=goals.map(function(g){
+    var isActive=g.status==='active';
+    var color=g.color||'#5B52E8';
+    var prog=calcGoalProgress(g.id);
+    var pct=prog!==null?prog:0;
+    return '<div style="background:var(--s2);border-radius:10px;padding:10px 12px;border-left:3px solid '+color+';margin-bottom:6px;">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:'+(prog!==null?'8':'0')+'px;">'
+        +'<div style="flex:1;cursor:pointer;" onclick="toggleEveningGoal(\''+g.id+'\')">'
+          +'<div style="font-size:13px;font-weight:700;">'+escHtml(g.title)+'</div>'
+        +'</div>'
+        +'<span class="badge '+(isActive?'badge-indigo':'badge-gray')+' ev-badge-'+g.id+'" style="cursor:pointer;" onclick="toggleEveningGoal(\''+g.id+'\')">'+(isActive?'진행중':'대기')+'</span>'
+      +'</div>'
+      +(prog!==null?'<div style="height:4px;background:var(--bdr);border-radius:2px;">'
+        +'<div style="height:4px;border-radius:2px;background:'+color+';width:'+pct+'%;"></div>'
+      +'</div>':'')
+    +'</div>';
+  }).join('');
+}
+
+function toggleEveningGoal(id){
   var goals=getGoals();
   var g=goals.find(function(x){ return x.id===id; });
   if(!g) return;
   g.status=g.status==='active'?'backlog':'active';
   upsertGoal(g);
-  Promise.resolve(supa.from('goals').upsert(g)).catch(function(){});
-  var dot=document.getElementById('evening-dot-'+id);
-  var badge=document.getElementById('evening-badge-'+id);
-  if(dot){ dot.style.background=g.status==='active'?(g.color||'#5B52E8'):'transparent'; }
-  if(badge){ badge.className='badge '+(g.status==='active'?'badge-indigo':'badge-gray'); badge.textContent=g.status==='active'?'진행중':'대기'; }
+  _renderEveningGoals();
+}
+
+function prefillEveningSlot(start, end){
+  document.getElementById('ev-start').value=start;
+  document.getElementById('ev-end').value=end;
+  switchEveningTab('add');
+  document.getElementById('ev-title').focus();
+}
+
+function eveningAddPlan(){
+  var title=document.getElementById('ev-title').value.trim();
+  var start=document.getElementById('ev-start').value;
+  var end=document.getElementById('ev-end').value;
+  if(!title||!start||!end){ showToast('제목과 시간을 입력해주세요'); return; }
+  var tomorrow=getTomorrow();
+  upsertPlan({id:genId(),plan_date:tomorrow,title:title,start_time:start,end_time:end,color:'#5B52E8',type:'plan'});
+  document.getElementById('ev-title').value='';
+  document.getElementById('ev-start').value='';
+  document.getElementById('ev-end').value='';
+  showToast('내일 일정에 추가됐습니다!');
+  // 빈 슬롯 목록 갱신
+  openEveningPlanning();
 }
 
 /* ══════════════════════════════════════════

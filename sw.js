@@ -58,3 +58,16 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(clients.openWindow('/binder-app/'));
 });
+
+/* 앱에서 postMessage로 알림 요청 */
+self.addEventListener('message', e => {
+  if(e.data && e.data.type === 'NOTIFY'){
+    self.registration.showNotification(e.data.title, {
+      body: e.data.body,
+      tag: e.data.tag || 'binder',
+      icon: '/binder-app/icons/icon-192.png',
+      badge: '/binder-app/icons/icon-72.png',
+      vibrate: [100, 50, 100]
+    });
+  }
+});
