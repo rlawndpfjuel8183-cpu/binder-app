@@ -846,7 +846,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
   <section id="view-goal" class="view">
     <div class="topbar">
       <div class="topbar-title">골</div>
-      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openGoalAdd(null,'short_job')">
+      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openGoalAdd(null,'project')">
         <i class="fa-solid fa-plus"></i> 골 추가
       </button>
     </div>
@@ -905,7 +905,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div class="tl-panel">
           <div class="tl-panel-head">
             <span class="tl-col-label">🎯 골</span>
-            <button class="btn btn-primary btn-sm" onclick="openGoalAdd(null,'short_job')">
+            <button class="btn btn-primary btn-sm" onclick="openGoalAdd(null,'project')">
               <i class="fa-solid fa-plus"></i> 골 추가
             </button>
           </div>
@@ -1569,7 +1569,7 @@ function getFixedForDate(dateStr){
 }
 
 function timeToMin(t){ if(!t) return 0; var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
-function minToHM(m){ if(m<0)m=0; var h=Math.floor(m/60),mm=m%60; return mm===0?h+'h':h+'h '+mm+'m'; }
+function minToHM(m){ if(m<0)m=0; if(m===0) return '0분'; var h=Math.floor(m/60),mm=m%60; return mm===0?h+'h':h>0?h+'h '+mm+'m':mm+'분'; }
 function minToTime(m){ m=m%(24*60); var h=Math.floor(m/60),mm=m%60; return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm; }
 
 function calcAvailable(dateStr){
@@ -1824,52 +1824,70 @@ function renderGoalList(){
     return;
   }
 
-  el.innerHTML=filteredCats.map(function(cat){
-    var color=cat.color||'#5B52E8';
-    var subs=goals.filter(function(g){ return g.parent_id===cat.id; });
-    var prog=calcGoalProgress(cat.id);
+  // 버그수정: 대분류 없이 직접 추가된 최상위 골도 표시
+  var topLevelNonCat = goals.filter(function(g){
+    return !g.parent_id && g.type !== 'category';
+  });
+  var filteredTopNonCat = activeCatFilter==='all' ? topLevelNonCat : [];
+
+  function renderGoalCard(g, isTopLevel){
+    var color=g.color||'#5B52E8';
+    var children=goals.filter(function(c){ return c.parent_id===g.id; });
+    var prog=calcGoalProgress(g.id);
+    var TYPE_ICON={project:'diagram-project',short_job:'bolt',recurring_job:'rotate',sub:'circle-dot',category:'folder'};
+    var dl='';
+    if(g.deadline){
+      var diff=Math.ceil((new Date(g.deadline)-new Date())/(86400000));
+      dl=diff<=0?'<span class="badge badge-rose">D-day</span>':
+         diff<=7?'<span class="badge badge-amber">D-'+diff+'</span>':'';
+    }
     var childHtml='';
-    if(subs.length>0){
+    if(children.length>0){
       childHtml='<div class="goal-children">'
-        +subs.map(function(sub){
+        +children.map(function(sub){
           var subProg=calcGoalProgress(sub.id);
           var subColor=TYPE_COLORS[sub.type]||color;
-          var dl='';
-          if(sub.deadline){
-            var diff=Math.ceil((new Date(sub.deadline)-new Date())/(86400000));
-            dl=diff<=0?'<span class="badge badge-rose" style="margin-left:auto;">D-day</span>':
-               diff<=7?'<span class="badge badge-amber" style="margin-left:auto;">D-'+diff+'</span>':'';
-          }
-          var grandchildren=goals.filter(function(g){ return g.parent_id===sub.id; });
+          var subDl='';
+          if(sub.deadline){ var d2=Math.ceil((new Date(sub.deadline)-new Date())/86400000); subDl=d2<=0?'<span class="badge badge-rose" style="margin-left:auto;">D-day</span>':d2<=7?'<span class="badge badge-amber" style="margin-left:auto;">D-'+d2+'</span>':''; }
+          var gc=goals.filter(function(x){ return x.parent_id===sub.id; });
           return '<div class="goal-child-row" onclick="openGoalEdit(\''+sub.id+'\')">'
-            +'<div class="goal-child-icon" style="background:'+subColor+'"><i class="fa-solid fa-'+(sub.type==='project'?'diagram-project':sub.type==='short_job'?'bolt':sub.type==='recurring_job'?'rotate':'circle-dot')+'"></i></div>'
+            +'<div class="goal-child-icon" style="background:'+subColor+'"><i class="fa-solid fa-'+(TYPE_ICON[sub.type]||'circle-dot')+'"></i></div>'
             +'<div style="flex:1;">'
             +'<div style="display:flex;align-items:center;gap:6px;">'
-            +'<span class="goal-child-title">'+escHtml(sub.title)+'</span>'+dl
+            +'<span class="goal-child-title">'+escHtml(sub.title)+'</span>'+subDl
             +'</div>'
-            +(grandchildren.length?'<div style="font-size:10px;color:var(--muted2);margin-top:2px;">하위 '+grandchildren.length+'개</div>':'')
+            +(gc.length?'<div style="font-size:10px;color:var(--muted2);margin-top:2px;">하위 '+gc.length+'개</div>':'')
             +(subProg!==null?'<div class="prog-bar" style="margin-top:3px;"><div class="prog-fill" style="width:'+subProg+'%;background:'+subColor+'"></div></div>':'')
             +'</div>'
             +'<span style="font-size:10px;color:var(--muted2);">'+getStatusLabel(sub.status)+'</span>'
             +'</div>';
         }).join('')
         +'<div style="padding:6px 0;">'
-        +'<button class="btn btn-ghost btn-sm" style="width:100%;" onclick="event.stopPropagation();openGoalAdd(\''+cat.id+'\',\'sub\')">'
+        +'<button class="btn btn-ghost btn-sm" style="width:100%;" onclick="event.stopPropagation();openGoalAdd(\''+g.id+'\',\'sub\')">'
         +'<i class="fa-solid fa-plus"></i> 하위 항목 추가</button></div>'
         +'</div>';
     }
-    return '<div class="goal-card" style="--gc:'+color+';" onclick="openGoalEdit(\''+cat.id+'\',true)">'
+    var TYPE_LABELS={category:'대분류',sub:'소분류',project:'프로젝트',short_job:'단기',recurring_job:'정기'};
+    return '<div class="goal-card" style="--gc:'+color+';" onclick="openGoalEdit(\''+g.id+'\','+isTopLevel+')">'
       +'<div class="goal-card-head">'
       +'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
-      +'<div class="goal-card-title">'+escHtml(cat.title)+'</div>'
+      +'<div class="goal-card-title">'+escHtml(g.title)+'</div>'
+      +dl
       +'<div class="goal-card-badges">'
-      +'<span class="badge badge-gray">'+(cat.type_label||'대분류')+'</span>'
-      +(cat.status==='done'?'<span class="badge badge-green">완료</span>':cat.status==='active'?'<span class="badge badge-indigo">진행중</span>':'')
+      +'<span class="badge badge-gray">'+(TYPE_LABELS[g.type]||g.type)+'</span>'
+      +(g.status==='done'?'<span class="badge badge-green">완료</span>':g.status==='active'?'<span class="badge badge-indigo">진행중</span>':'')
       +'</div></div>'
-      +(prog!==null?'<div style="display:flex;align-items:center;gap:8px;"><div class="prog-bar" style="flex:1;"><div class="prog-fill" style="width:'+prog+'%;background:'+color+'"></div></div><span style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;">'+prog+'%</span></div>':'')
+      +(prog!==null?'<div style="display:flex;align-items:center;gap:8px;margin-top:4px;"><div class="prog-bar" style="flex:1;"><div class="prog-fill" style="width:'+prog+'%;background:'+color+'"></div></div><span style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;">'+prog+'%</span></div>':'')
       +childHtml
       +'</div>';
-  }).join('');
+  }
+
+  var catHtml = filteredCats.map(function(cat){ return renderGoalCard(cat, true); }).join('');
+  var nonCatHtml = filteredTopNonCat.length>0
+    ? '<div style="margin-top:8px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;padding:0 2px;margin-bottom:6px;">기타 골</div>'
+      + filteredTopNonCat.map(function(g){ return renderGoalCard(g, true); }).join('')
+    : '';
+  el.innerHTML = catHtml + nonCatHtml;
 }
 
 function getStatusLabel(s){ return s==='done'?'완료':s==='active'?'진행중':'대기'; }
@@ -2018,21 +2036,24 @@ function renderTimeline(){
 
   // ── 골 팔레트 (드래그 소스) ──
   var palette = document.getElementById('tl-goal-palette');
-  var activeGoals = getGoals().filter(function(g){ return g.status==='active'; });
-  if(activeGoals.length === 0){
+  var paletteGoals = getGoals().filter(function(g){ return g.status==='active'||g.status==='backlog'; });
+  if(paletteGoals.length === 0){
     palette.innerHTML = '<div style="padding:14px 8px;font-size:12px;color:var(--muted2);text-align:center;line-height:1.6;">'
       +'<i class="fa-solid fa-bullseye" style="font-size:20px;opacity:.3;display:block;margin-bottom:8px;"></i>'
-      +'활성 골이 없습니다.<br/>'
+      +'골이 없습니다.<br/>'
       +'<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="openGoalAdd(null,\'short_job\')">'
       +'<i class="fa-solid fa-plus"></i> 골 추가</button></div>';
   } else {
     palette.innerHTML = '';
-    activeGoals.forEach(function(g){
+    paletteGoals.forEach(function(g){
       var chip = document.createElement('div');
       chip.className = 'tl-goal-chip';
-      chip.style.cssText = 'background:'+(g.color||'#5B52E8')+'18;border-color:'+(g.color||'#5B52E8')+';color:'+(g.color||'#5B52E8')+';';
+      var chipOpacity = g.status==='backlog' ? '0.55' : '1';
+      chip.style.cssText = 'background:'+(g.color||'#5B52E8')+'18;border-color:'+(g.color||'#5B52E8')+';color:'+(g.color||'#5B52E8')+';opacity:'+chipOpacity+';';
+      var estLabel = g.est_min ? formatEstMin(g.est_min) : '1h';
       chip.innerHTML = '<i class="fa-solid fa-grip-dots-vertical"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(g.title)+'</span>'
-        +'<span style="font-size:9px;opacity:.55;flex-shrink:0;">1h</span>';
+        +(g.status==='backlog'?'<span style="font-size:9px;opacity:.6;flex-shrink:0;">대기</span>':'')
+        +'<span style="font-size:9px;opacity:.55;flex-shrink:0;margin-left:4px;">'+estLabel+'</span>';
       chip.draggable = true;
       chip.addEventListener('dragstart', function(e){
         _dragGoal = g; _dragGoal._dropDur = 60;
@@ -3281,16 +3302,16 @@ function deferCarryover(planId, title, startTime, endTime, idx, el){
   };
   upsertPlan(newPlan);
   Promise.resolve(supa.from('plans').upsert(newPlan)).catch(function(){});
-  el.style.opacity='0.4';
-  el.style.pointerEvents='none';
-  el.querySelector('button:last-child').textContent='✓ '+minToTime(slot?slot.s:timeToMin(startTime))+' 이월됨';
+  if(el && el.style) { el.style.opacity='0.4'; el.style.pointerEvents='none'; }
+  var deferBtn = el && el.querySelector ? el.querySelector('button:last-child') : null;
+  if(deferBtn) deferBtn.textContent='✓ '+minToTime(slot?slot.s:timeToMin(startTime))+' 이월됨';
   showToast('내일 '+newStart+'에 이월됐습니다!');
 }
 
 function discardCarryover(idx, el){
-  el.style.opacity='0.3';
-  el.style.pointerEvents='none';
-  el.querySelector('button:first-child').textContent='✓ 버림';
+  if(el && el.style) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+  var discardBtn = el && el.querySelector ? el.querySelector('button:first-child') : null;
+  if(discardBtn) discardBtn.textContent='✓ 버림';
 }
 
 function applyAllCarryover(){
@@ -3507,6 +3528,9 @@ function getDNATemplates(){ try{ return JSON.parse(localStorage.getItem('b2_dna'
 function saveDNATemplates(arr){ localStorage.setItem('b2_dna', JSON.stringify(arr)); }
 
 function openDNAModal(){
+  // 드로어 밖에서 열 때 "현재 골 템플릿저장" 버튼 숨기기
+  var saveBtn = document.querySelector('#modal-dna .btn[onclick="saveDNATemplate()"]');
+  if(saveBtn) saveBtn.style.display = _editGoalId ? '' : 'none';
   renderDNAList();
   openModal('modal-dna');
 }
