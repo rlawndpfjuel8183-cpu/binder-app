@@ -1130,9 +1130,26 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </div>
       <div class="divider"><hr/><span>자비스 어시스턴트</span><hr/></div>
       <div>
-        <label class="lbl">호출어</label>
+        <label class="lbl">호출어 (표시용)</label>
         <input type="text" class="inp" id="set-wakeword" placeholder="자비스"/>
-        <p style="font-size:11px;color:var(--muted);margin-top:5px;">이 단어를 말하면 AI 어시스턴트가 활성화됩니다</p>
+      </div>
+      <div>
+        <label class="lbl">단축키</label>
+        <input type="text" class="inp" id="set-shortcut" placeholder="ctrl+space" id="set-shortcut" readonly
+          style="cursor:pointer;caret-color:transparent;"
+          onfocus="this.value='단축키를 눌러주세요...'; this._recording=true;"
+          onblur="if(this._recording){this.value=getJarvisShortcut();this._recording=false;}"
+          onkeydown="if(this._recording){
+            var k=[];
+            if(event.ctrlKey||event.metaKey)k.push('ctrl');
+            if(event.altKey)k.push('alt');
+            if(event.shiftKey)k.push('shift');
+            var main=event.code==='Space'?'space':event.key.toLowerCase();
+            if(!['control','alt','shift','meta'].includes(main)){k.push(main);this.value=k.join('+');document.getElementById('set-shortcut-hidden').value=k.join('+');this.blur();}
+            event.preventDefault();
+          }"/>
+        <input type="hidden" id="set-shortcut-hidden"/>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">클릭 후 원하는 키 조합을 누르세요 (기본: Ctrl+Space)</p>
       </div>
       <div class="divider"><hr/><span>알림</span><hr/></div>
       <button class="btn btn-secondary" onclick="setupPushNotifications()">
@@ -2532,6 +2549,8 @@ function openSettings(){
   document.getElementById('set-sleep').value=s.sleep_time||'23:30';
   document.getElementById('set-apikey').value=s.api_key||'';
   document.getElementById('set-wakeword').value=s.wake_word||'자비스';
+  document.getElementById('set-shortcut').value=s.jarvis_shortcut||'ctrl+space';
+  document.getElementById('set-shortcut-hidden').value='';
   openModal('modal-settings');
 }
 function saveSettings(){
@@ -2542,6 +2561,8 @@ function saveSettings(){
   if(key) s.api_key=key;
   var ww=document.getElementById('set-wakeword').value.trim();
   if(ww) s.wake_word=ww;
+  var sc=document.getElementById('set-shortcut-hidden').value.trim();
+  if(sc) s.jarvis_shortcut=sc;
   saveSettingsData(s);
   closeModal('modal-settings');
   showToast('설정이 저장됐습니다!');
@@ -3656,108 +3677,106 @@ function hideVoiceOverlay(){
 }
 
 /* ═══════════════════════════════════════
-   자비스 어시스턴트 모드
+   자비스 어시스턴트 — 단축키 호출 방식
+   마이크는 호출 시에만 켜짐 (상시 청취 없음)
 ═══════════════════════════════════════ */
-var _jarvisActive=false, _jarvisRec=null, _jarvisWaiting=false;
+var _jarvisRec=null, _jarvisRunning=false;
 
-function getWakeWord(){ return (getSettings().wake_word||'자비스').trim().toLowerCase(); }
+function getJarvisShortcut(){ return (getSettings().jarvis_shortcut||'ctrl+space'); }
 
-function toggleJarvis(){
-  if(_jarvisActive) stopJarvis(); else startJarvis();
-}
-
-function startJarvis(){
+function invokeJarvis(){
+  if(_jarvisRunning) return;
   if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
     showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return;
   }
-  _jarvisActive=true;
+  _jarvisRunning=true;
   _updateJarvisFab(true);
-  showToast('🤖 자비스 대기 중... "'+getWakeWord()+'"라고 불러보세요');
-  _jarvisListen();
+
+  /* Siri 스타일: 진동(지원시) + 즉시 오버레이 */
+  if(navigator.vibrate) navigator.vibrate([30,20,30]);
+  _jarvisSay('네');
+  showVoiceOverlay('listening');
+  _voiceInitAudio();
+  if(!_voiceAnimFrame) _voiceStartCanvas();
+
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _jarvisRec=new SR();
+  _jarvisRec.lang='ko-KR';
+  _jarvisRec.interimResults=false;
+  _jarvisRec.maxAlternatives=1;
+
+  _jarvisRec.onresult=function(e){
+    var cmd=e.results[0][0].transcript;
+    showVoiceOverlay('done', cmd);
+    _jarvisProcess(cmd);
+  };
+  _jarvisRec.onerror=function(e){
+    hideVoiceOverlay();
+    _jarvisRunning=false;
+    _updateJarvisFab(false);
+    if(e.error!=='aborted') showToast('음성 인식 오류: '+e.error);
+  };
+  _jarvisRec.onend=function(){
+    var ov=document.getElementById('voice-overlay');
+    if(ov && !ov.classList.contains('done')){
+      hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false);
+    }
+  };
+  try{ _jarvisRec.start(); }catch(e){ _jarvisRunning=false; _updateJarvisFab(false); }
 }
 
-function stopJarvis(){
-  _jarvisActive=false;
-  _jarvisWaiting=false;
-  if(_jarvisRec){ try{_jarvisRec.stop();}catch(e){} _jarvisRec=null; }
-  _updateJarvisFab(false);
-  showToast('자비스 종료');
-}
+function toggleJarvis(){ invokeJarvis(); }
 
 function _updateJarvisFab(on){
   var fab=document.getElementById('jarvis-fab');
   if(!fab) return;
   fab.style.background=on?'linear-gradient(135deg,#7c3aed,#4f46e5)':'linear-gradient(135deg,#374151,#1f2937)';
-  fab.title=on?'자비스 종료 (활성)':'자비스 시작';
   fab.querySelector('.jf-dot').style.display=on?'block':'none';
 }
 
-function _jarvisListen(){
-  if(!_jarvisActive) return;
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  _jarvisRec=new SR();
-  _jarvisRec.lang='ko-KR';
-  _jarvisRec.continuous=false;
-  _jarvisRec.interimResults=false;
+/* 단축키 이벤트 리스너 */
+(function(){
+  var _prevKey='', _prevTime=0;
+  document.addEventListener('keydown',function(e){
+    /* 입력창에 포커스 중이면 무시 */
+    var tag=(e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||e.target.isContentEditable) return;
 
-  _jarvisRec.onresult=function(e){
-    var text=(e.results[0][0].transcript||'').trim().toLowerCase();
-    var ww=getWakeWord();
-    if(!_jarvisWaiting){
-      /* 호출어 감지 */
-      if(text.includes(ww)){
-        _jarvisWaiting=true;
-        _jarvisSay('네, 말씀하세요');
-        showVoiceOverlay('listening');
-        _voiceInitAudio();
-        if(!_voiceAnimFrame) _voiceStartCanvas();
-        setTimeout(function(){ _jarvisCapture(); }, 800);
-      } else {
-        _jarvisListen();
-      }
+    var shortcut=getJarvisShortcut();
+    var key=[];
+    if(e.ctrlKey||e.metaKey) key.push('ctrl');
+    if(e.altKey) key.push('alt');
+    if(e.shiftKey) key.push('shift');
+    key.push(e.code==='Space'?'space':e.key.toLowerCase());
+    var combo=key.join('+');
+
+    if(combo===shortcut){
+      e.preventDefault();
+      invokeJarvis();
+      return;
     }
-  };
-  _jarvisRec.onerror=function(e){
-    if(_jarvisActive && e.error!=='aborted') setTimeout(_jarvisListen, 1000);
-  };
-  _jarvisRec.onend=function(){
-    if(_jarvisActive && !_jarvisWaiting) setTimeout(_jarvisListen, 300);
-  };
-  try{ _jarvisRec.start(); }catch(e){}
-}
-
-function _jarvisCapture(){
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  var rec=new SR();
-  rec.lang='ko-KR';
-  rec.interimResults=false;
-  rec.onresult=function(e){
-    var cmd=e.results[0][0].transcript;
-    showVoiceOverlay('done', cmd);
-    _jarvisProcess(cmd);
-  };
-  rec.onerror=function(){
-    hideVoiceOverlay();
-    _jarvisWaiting=false;
-    _jarvisSay('다시 말씀해 주세요');
-    setTimeout(_jarvisListen, 500);
-  };
-  rec.onend=function(){
-    var ov=document.getElementById('voice-overlay');
-    if(ov && !ov.classList.contains('done')){ hideVoiceOverlay(); _jarvisWaiting=false; setTimeout(_jarvisListen,300); }
-  };
-  try{ rec.start(); }catch(e){}
-}
+    /* 더블탭 지원: 동일 키를 400ms 내에 두 번 */
+    var now=Date.now();
+    if(combo===_prevKey && now-_prevTime<400 && shortcut.startsWith('double:')){
+      var target=shortcut.replace('double:','');
+      if(combo===target){ e.preventDefault(); invokeJarvis(); }
+    }
+    _prevKey=combo; _prevTime=now;
+  });
+})();
 
 async function _jarvisProcess(cmd){
   var key=getApiKey();
-  if(!key){ hideVoiceOverlay(); _jarvisSay('API 키가 설정되지 않았습니다'); _jarvisWaiting=false; setTimeout(_jarvisListen,500); return; }
+  if(!key){
+    hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false);
+    _jarvisSay('API 키가 설정되지 않았습니다'); return;
+  }
   var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   var sys='당신은 바인더 앱의 AI 어시스턴트 자비스입니다. 한국어로 짧고 명확하게 답변하세요. 오늘은 '+today+'입니다. '
     +'사용자가 일정/골 추가를 요청하면 JSON으로 응답하세요: {"action":"add_plan","title":"...","date":"YYYY-MM-DD","start":"HH:MM","end":"HH:MM"} 또는 {"action":"add_goal","title":"..."}. '
     +'그 외 질문은 {"action":"reply","text":"..."}으로 응답하세요. JSON만 출력하세요.';
   var res=await callGemini(sys, cmd);
-  if(!res){ hideVoiceOverlay(); _jarvisWaiting=false; setTimeout(_jarvisListen,500); return; }
+  if(!res){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); return; }
   try{
     var j=JSON.parse(res.trim().replace(/```json|```/g,'').trim());
     if(j.action==='add_plan'){
