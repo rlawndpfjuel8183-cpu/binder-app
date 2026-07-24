@@ -2157,14 +2157,17 @@ function renderGoalList(){
       var sc=surv.pct>=70?'#22c55e':surv.pct>=40?'#f59e0b':'#ef4444';
       survBadge='<span style="font-size:10px;padding:2px 6px;border-radius:99px;background:'+sc+'22;color:'+sc+';font-weight:700;flex-shrink:0;">생존율 '+surv.pct+'%</span>';
     }
-    return '<div class="goal-card" style="--gc:'+color+';" onclick="openGoalEdit(\''+g.id+'\','+isTopLevel+')">'
+    var isDone = g.status==='done';
+    return '<div class="goal-card" style="--gc:'+color+';'+(isDone?'opacity:.65;':'')+';" onclick="openGoalEdit(\''+g.id+'\','+isTopLevel+')">'
       +'<div class="goal-card-head">'
-      +'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
-      +'<div class="goal-card-title">'+escHtml(g.title)+'</div>'
+      +'<button onclick="event.stopPropagation();toggleGoalDone(\''+g.id+'\')" title="완료 토글" style="flex-shrink:0;width:20px;height:20px;border-radius:50%;border:2px solid '+(isDone?color:'var(--bdr)')+';background:'+(isDone?color:'transparent')+';cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s;">'
+      +(isDone?'<i class="fa-solid fa-check" style="font-size:10px;color:#fff;"></i>':'')
+      +'</button>'
+      +'<div class="goal-card-title" style="'+(isDone?'text-decoration:line-through;opacity:.7;':'')+'">'+escHtml(g.title)+'</div>'
       +dl
       +'<div class="goal-card-badges">'
       +'<span class="badge badge-gray">'+(TYPE_LABELS[g.type]||g.type)+'</span>'
-      +(g.status==='done'?'<span class="badge badge-green">완료</span>':g.status==='active'?'<span class="badge badge-indigo">진행중</span>':'')
+      +(isDone?'<span class="badge badge-green">완료</span>':g.status==='active'?'<span class="badge badge-indigo">진행중</span>':'')
       +'</div></div>'
       +(surv?'<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">'+survBadge+'<span style="font-size:10px;color:var(--muted);">D-'+surv.daysLeft+' · 필요 '+formatEstMin(surv.totalEst)+'</span></div>':'')
       +(prog!==null?'<div style="display:flex;align-items:center;gap:8px;margin-top:5px;"><div class="prog-bar" style="flex:1;"><div class="prog-fill" style="width:'+prog+'%;background:'+color+'"></div></div><span style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;">'+prog+'%</span></div>':'')
@@ -2180,6 +2183,14 @@ function renderGoalList(){
   el.innerHTML = catHtml + nonCatHtml;
 }
 
+function toggleGoalDone(id){
+  var g=getGoals().find(function(x){ return x.id===id; });
+  if(!g) return;
+  g.status = g.status==='done' ? 'active' : 'done';
+  upsertGoal(g);
+  renderGoals(); renderHome();
+  showToast(g.status==='done'?'✅ 완료 처리됐습니다!':'↩️ 진행중으로 되돌렸습니다');
+}
 function getStatusLabel(s){ return s==='done'?'완료':s==='active'?'진행중':'대기'; }
 
 /* ══════════════════════════════════════════
