@@ -2120,13 +2120,13 @@ function renderGoalList(){
           if(sub.deadline){ var d2=Math.ceil((new Date(sub.deadline)-new Date())/86400000); subDl=d2<=0?'<span class="badge badge-rose" style="margin-left:auto;">D-day</span>':d2<=7?'<span class="badge badge-amber" style="margin-left:auto;">D-'+d2+'</span>':''; }
           var gc=goals.filter(function(x){ return x.parent_id===sub.id; });
           var subDone=sub.status==='done';
-          return '<div class="goal-child-row" onclick="openGoalEdit(\''+sub.id+'\')">'
+          return '<div class="goal-child-row">'
             +'<button onclick="event.stopPropagation();toggleGoalDone(\''+sub.id+'\')" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid '+(subDone?subColor:'var(--bdr)')+';background:'+(subDone?subColor:'transparent')+';cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">'
             +(subDone?'<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>':'')
             +'</button>'
             +'<div style="flex:1;">'
             +'<div style="display:flex;align-items:center;gap:6px;">'
-            +'<span class="goal-child-title" style="'+(subDone?'text-decoration:line-through;opacity:.5;':'')+'">'+escHtml(sub.title)+'</span>'+subDl
+            +'<span class="goal-child-title" style="'+(subDone?'text-decoration:line-through;opacity:.5;':'')+'cursor:text;" onclick="event.stopPropagation();inlineEditChildGoal(this,\''+sub.id+'\')">'+escHtml(sub.title)+'</span>'+subDl
             +'</div>'
             +(gc.length?'<div style="font-size:10px;color:var(--muted2);margin-top:2px;">하위 '+gc.length+'개</div>':'')
             +(subProg!==null?'<div class="prog-bar" style="margin-top:3px;"><div class="prog-fill" style="width:'+subProg+'%;background:'+subColor+'"></div></div>':'')
@@ -2171,6 +2171,25 @@ function renderGoalList(){
   el.innerHTML = catHtml + nonCatHtml;
 }
 
+function inlineEditChildGoal(span, id){
+  var oldTitle = span.textContent;
+  var inp = document.createElement('input');
+  inp.value = oldTitle;
+  inp.style.cssText = 'font-size:12px;font-weight:600;border:none;border-bottom:2px solid var(--indigo);background:transparent;outline:none;width:100%;color:var(--text);';
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+  function save(){
+    var newTitle = inp.value.trim() || oldTitle;
+    var g = getGoals().find(function(x){ return x.id===id; });
+    if(g && newTitle !== oldTitle){ g.title = newTitle; upsertGoal(g); renderGoals(); }
+    else { inp.replaceWith(span); }
+  }
+  inp.addEventListener('blur', save);
+  inp.addEventListener('keydown', function(e){
+    if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+    if(e.key==='Escape'){ inp.value=oldTitle; inp.blur(); }
+  });
+}
 function toggleGoalDone(id){
   var g=getGoals().find(function(x){ return x.id===id; });
   if(!g) return;
