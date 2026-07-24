@@ -5826,7 +5826,7 @@ async function init(){
   applyTheme();
   renderHome();
   // Supabase 세션 체크 (OAuth 콜백 포함)
-  supabase.auth.onAuthStateChange(function(event, session){
+  supa.auth.onAuthStateChange(function(event, session){
     if(session) onSupaLogin(session);
     else updateSyncUI(null);
   });
