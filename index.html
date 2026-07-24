@@ -2133,16 +2133,18 @@ function renderGoalList(){
           var subDl='';
           if(sub.deadline){ var d2=Math.ceil((new Date(sub.deadline)-new Date())/86400000); subDl=d2<=0?'<span class="badge badge-rose" style="margin-left:auto;">D-day</span>':d2<=7?'<span class="badge badge-amber" style="margin-left:auto;">D-'+d2+'</span>':''; }
           var gc=goals.filter(function(x){ return x.parent_id===sub.id; });
+          var subDone=sub.status==='done';
           return '<div class="goal-child-row" onclick="openGoalEdit(\''+sub.id+'\')">'
-            +'<div class="goal-child-icon" style="background:'+subColor+'"><i class="fa-solid fa-'+(TYPE_ICON[sub.type]||'circle-dot')+'"></i></div>'
+            +'<button onclick="event.stopPropagation();toggleGoalDone(\''+sub.id+'\')" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid '+(subDone?subColor:'var(--bdr)')+';background:'+(subDone?subColor:'transparent')+';cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">'
+            +(subDone?'<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>':'')
+            +'</button>'
             +'<div style="flex:1;">'
             +'<div style="display:flex;align-items:center;gap:6px;">'
-            +'<span class="goal-child-title">'+escHtml(sub.title)+'</span>'+subDl
+            +'<span class="goal-child-title" style="'+(subDone?'text-decoration:line-through;opacity:.5;':'')+'">'+escHtml(sub.title)+'</span>'+subDl
             +'</div>'
             +(gc.length?'<div style="font-size:10px;color:var(--muted2);margin-top:2px;">하위 '+gc.length+'개</div>':'')
             +(subProg!==null?'<div class="prog-bar" style="margin-top:3px;"><div class="prog-fill" style="width:'+subProg+'%;background:'+subColor+'"></div></div>':'')
             +'</div>'
-            +'<span style="font-size:10px;color:var(--muted2);">'+getStatusLabel(sub.status)+'</span>'
             +'</div>';
         }).join('')
         +'<div style="padding:6px 0;">'
@@ -2171,6 +2173,15 @@ function renderGoalList(){
       +'</div></div>'
       +(surv?'<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">'+survBadge+'<span style="font-size:10px;color:var(--muted);">D-'+surv.daysLeft+' · 필요 '+formatEstMin(surv.totalEst)+'</span></div>':'')
       +(prog!==null?'<div style="display:flex;align-items:center;gap:8px;margin-top:5px;"><div class="prog-bar" style="flex:1;"><div class="prog-fill" style="width:'+prog+'%;background:'+color+'"></div></div><span style="font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;">'+prog+'%</span></div>':'')
+      +(g.stages&&g.stages.length&&!children.length?'<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">'+g.stages.map(function(st,si){
+        var sd=!!st.done;
+        return '<div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();toggleGoalStage(\''+g.id+'\','+si+')">'
+          +'<div style="flex-shrink:0;width:16px;height:16px;border-radius:50%;border:2px solid '+(sd?color:'var(--bdr)')+';background:'+(sd?color:'transparent')+';display:flex;align-items:center;justify-content:center;cursor:pointer;">'
+          +(sd?'<i class="fa-solid fa-check" style="font-size:8px;color:#fff;"></i>':'')
+          +'</div>'
+          +'<span style="font-size:12px;'+(sd?'text-decoration:line-through;opacity:.45;':'')+'">'+escHtml(st.name)+'</span>'
+          +'</div>';
+      }).join('')+'</div>':'')
       +childHtml
       +'</div>';
   }
@@ -2183,6 +2194,13 @@ function renderGoalList(){
   el.innerHTML = catHtml + nonCatHtml;
 }
 
+function toggleGoalStage(goalId, stageIdx){
+  var g=getGoals().find(function(x){ return x.id===goalId; });
+  if(!g||!g.stages) return;
+  g.stages[stageIdx].done=!g.stages[stageIdx].done;
+  upsertGoal(g);
+  renderGoals();
+}
 function toggleGoalDone(id){
   var g=getGoals().find(function(x){ return x.id===id; });
   if(!g) return;
@@ -3296,10 +3314,16 @@ function renderStagesList(){
   var el=document.getElementById('goal-stages-list');
   if(!_editStages.length){ el.innerHTML='<p style="font-size:12px;color:var(--muted2);">단계를 추가해보세요 (예: 기획 → 제작 → 검수 → 완료)</p>'; return; }
   el.innerHTML=_editStages.map(function(st,i){
-    return '<div class="stage-row"><span class="stage-name">'+escHtml(st.name)+'</span>'
+    var done=!!st.done;
+    return '<div class="stage-row">'
+      +'<button onclick="toggleStage('+i+')" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid '+(done?_editGoalColor||'#5B52E8':'var(--bdr)')+';background:'+(done?_editGoalColor||'#5B52E8':'transparent')+';cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">'
+      +(done?'<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>':'')
+      +'</button>'
+      +'<span class="stage-name" style="'+(done?'text-decoration:line-through;opacity:.5;':'')+'">'+escHtml(st.name)+'</span>'
       +'<button class="btn btn-danger btn-icon btn-sm" onclick="removeStage('+i+')"><i class="fa-solid fa-xmark"></i></button></div>';
   }).join('');
 }
+function toggleStage(i){ _editStages[i].done=!_editStages[i].done; renderStagesList(); }
 function removeStage(i){ _editStages.splice(i,1); renderStagesList(); }
 
 function formatEstMin(m){
