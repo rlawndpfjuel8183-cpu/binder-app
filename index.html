@@ -5546,12 +5546,6 @@ function exportWeeklyReport(){
 ══════════════════════════════════════════ */
 async function init(){
   applyTheme();
-  // Supabase에서 데이터 로드 (백그라운드)
-  loadFromSupabase().then(function(){
-    renderHome();
-    if(document.querySelector('#view-goal.active')) renderGoals();
-  });
-  // 즉시 로컬 데이터로 렌더
   renderHome();
   // 설정 초기화 (없으면 기본값)
   var s=getSettings();
