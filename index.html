@@ -3299,7 +3299,7 @@ function saveGoalSilent(){
     priority:_editGoalPriority, color:_editGoalColor,
     deadline:document.getElementById('goal-edit-deadline').value||null,
     notes:document.getElementById('goal-edit-notes').value||'',
-    stages:_editStages,
+
     est_min:parseInt(document.getElementById('goal-est-min').value)||null,
     created_at:new Date().toISOString()
   };
@@ -3568,7 +3568,6 @@ function saveGoal(){
     color: _editGoalColor,
     deadline: document.getElementById('goal-edit-deadline').value||null,
     notes: document.getElementById('goal-edit-notes').value||'',
-    stages: _editStages,
     est_min: parseInt(document.getElementById('goal-est-min').value)||null,
     created_at: new Date().toISOString()
   };
