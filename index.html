@@ -1689,13 +1689,34 @@ function getPlans(date){
   }).map(function(p){ return Object.assign({},p,{plan_date:date,id:p.id+'_r_'+date,_recurBase:p.id}); });
   return direct.concat(recurring);
 }
-function upsertPlan(p){
+function upsertPlan(p, skipGcal){
   var arr=getAllPlans(), idx=arr.findIndex(function(x){ return x.id===p.id; });
   if(idx>=0) arr[idx]=p; else arr.push(p);
   localStorage.setItem('b2_plans', JSON.stringify(arr));
+  // 양방향 동기화: Google Calendar에도 반영
+  if(!skipGcal && !p._recurBase && p.type!=='gcal' && p.type!=='fixed' && getGcalToken() && p.start_time && p.end_time){
+    var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var body={summary:p.title,
+      start:{dateTime:p.plan_date+'T'+p.start_time+':00',timeZone:tz},
+      end:{dateTime:p.plan_date+'T'+p.end_time+':00',timeZone:tz}};
+    if(p.gcal_id){
+      gcalFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events/'+p.gcal_id,'PUT',body)
+        .catch(function(){});
+    } else {
+      gcalFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events','POST',body)
+        .then(function(ev){ if(ev&&ev.id){ p.gcal_id=ev.id; upsertPlan(p, true); } })
+        .catch(function(){});
+    }
+  }
 }
 function deletePlan(id){
+  var plan=getAllPlans().find(function(p){ return p.id===id; });
   localStorage.setItem('b2_plans', JSON.stringify(getAllPlans().filter(function(p){ return p.id!==id; })));
+  // 양방향 동기화: Google Calendar에서도 삭제
+  if(plan && plan.gcal_id && getGcalToken()){
+    gcalFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events/'+plan.gcal_id,'DELETE')
+      .catch(function(){});
+  }
 }
 
 function getAllTracks(){ try{ return JSON.parse(localStorage.getItem('b2_tracks')||'[]'); }catch(e){ return []; } }
@@ -5372,10 +5393,10 @@ function gcalFetch(url, method, body){
   });
 }
 
-function importFromGoogle(){
+function importFromGoogle(silent){
   var token=getGcalToken();
-  if(!token){ showToast('설정에서 Google 캘린더를 먼저 연결하세요'); return; }
-  showToast('Google 캘린더 가져오는 중...');
+  if(!token){ if(!silent) showToast('설정에서 Google 캘린더를 먼저 연결하세요'); return; }
+  if(!silent) showToast('Google 캘린더 가져오는 중...');
   // 오늘 기준 ±15일 범위
   var from=new Date(); from.setDate(from.getDate()-1);
   var to=new Date(); to.setDate(to.getDate()+15);
@@ -5394,16 +5415,20 @@ function importFromGoogle(){
       var ds=startDt.toISOString().slice(0,10);
       var sh=(startDt.getHours()<10?'0':'')+startDt.getHours()+':'+(startDt.getMinutes()<10?'0':'')+startDt.getMinutes();
       var eh=(endDt.getHours()<10?'0':'')+endDt.getHours()+':'+(endDt.getMinutes()<10?'0':'')+endDt.getMinutes();
-      // 이미 있으면 스킵 (gcal_id 기준)
+      // 이미 있으면 업데이트, 없으면 추가
       var existing=getAllPlans().find(function(p){ return p.gcal_id===ev.id; });
-      if(existing) return;
-      upsertPlan({id:genId(), gcal_id:ev.id, plan_date:ds, title:ev.summary||'(제목없음)',
-        start_time:sh, end_time:eh, color:'#4285F4', type:'gcal', created_at:new Date().toISOString()});
-      imported++;
+      if(existing){
+        var updated=Object.assign({},existing,{title:ev.summary||'(제목없음)',plan_date:ds,start_time:sh,end_time:eh});
+        upsertPlan(updated, true);
+      } else {
+        upsertPlan({id:genId(), gcal_id:ev.id, plan_date:ds, title:ev.summary||'(제목없음)',
+          start_time:sh, end_time:eh, color:'#4285F4', type:'gcal', created_at:new Date().toISOString()}, true);
+        imported++;
+      }
     });
-    showToast('✅ Google 캘린더 '+imported+'개 이벤트 가져왔습니다!');
+    if(!silent) showToast('✅ Google 캘린더 '+imported+'개 이벤트 가져왔습니다!');
     renderTimeline(); renderCalendar(); renderHome();
-  }).catch(function(e){ if(e!=='no token'&&e!=='expired') showToast('가져오기 실패: '+e); });
+  }).catch(function(e){ if(!silent&&e!=='no token'&&e!=='expired') showToast('가져오기 실패: '+e); });
 }
 
 function exportToGoogle(){
@@ -5547,6 +5572,8 @@ function exportWeeklyReport(){
 async function init(){
   applyTheme();
   renderHome();
+  // 연결돼 있으면 백그라운드 자동 동기화
+  if(getGcalToken()) setTimeout(function(){ importFromGoogle(true); }, 1500);
   // 설정 초기화 (없으면 기본값)
   var s=getSettings();
   if(!s.wake_time) saveSettingsData(DEF_SETTINGS);
