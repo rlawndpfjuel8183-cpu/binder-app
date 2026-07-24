@@ -1047,11 +1047,16 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 
       <!-- 고정 일정 -->
       <div id="cal-fixed-panel" style="display:none;flex:1;overflow-y:auto;">
-        <div style="padding:14px 14px 0;display:flex;justify-content:flex-end;">
+        <div style="padding:14px 14px 0;display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="saveFixedPreset()">
+            <i class="fa-solid fa-floppy-disk"></i> 프리셋 저장
+          </button>
           <button class="btn btn-primary btn-sm" onclick="openFixedAdd()">
             <i class="fa-solid fa-plus"></i> 고정 일정 추가
           </button>
         </div>
+        <!-- 프리셋 목록 -->
+        <div id="fixed-preset-area" style="padding:10px 14px 0;"></div>
         <div class="view-body" style="padding-top:12px;">
           <div id="fixed-list"></div>
         </div>
@@ -2851,6 +2856,7 @@ function renderCalMonth(){
 }
 
 function renderFixedList(){
+  renderFixedPresets();
   var list=document.getElementById('fixed-list');
   var fixed=getFixed();
   if(fixed.length===0){
@@ -2872,6 +2878,53 @@ function renderFixedList(){
       +'<button class="btn btn-danger btn-icon btn-sm" onclick="removeFixed(\''+f.id+'\')"><i class="fa-solid fa-trash"></i></button>'
       +'</div>';
   }).join('');
+}
+
+/* ══════════════════════════════════════════
+   고정 일정 프리셋
+══════════════════════════════════════════ */
+function getFixedPresets(){ try{ return JSON.parse(localStorage.getItem('b2_fixed_presets')||'[]'); }catch(e){ return []; } }
+function saveFixedPresets(arr){ localStorage.setItem('b2_fixed_presets', JSON.stringify(arr)); }
+
+function saveFixedPreset(){
+  var fixed=getFixed();
+  if(!fixed.length){ showToast('저장할 고정 일정이 없습니다'); return; }
+  var name=prompt('프리셋 이름을 입력하세요\n(예: 직장인 루틴, 재택 루틴)', '');
+  if(!name||!name.trim()) return;
+  var presets=getFixedPresets();
+  presets.push({ id:genId(), name:name.trim(), items: JSON.parse(JSON.stringify(fixed)), created_at:new Date().toISOString() });
+  saveFixedPresets(presets);
+  renderFixedList();
+  showToast('✅ 프리셋 "'+name.trim()+'" 저장됐습니다!');
+}
+
+function applyFixedPreset(id){
+  var preset=getFixedPresets().find(function(p){ return p.id===id; });
+  if(!preset) return;
+  if(!confirm('"'+preset.name+'" 프리셋을 적용할까요?\n현재 고정 일정이 모두 교체됩니다.')) return;
+  localStorage.setItem('b2_fixed', JSON.stringify(preset.items.map(function(f){ return Object.assign({},f,{id:genId()}); })));
+  renderFixedList();
+  showToast('✅ "'+preset.name+'" 프리셋이 적용됐습니다!');
+}
+
+function deleteFixedPreset(id){
+  if(!confirm('프리셋을 삭제할까요?')) return;
+  saveFixedPresets(getFixedPresets().filter(function(p){ return p.id!==id; }));
+  renderFixedList();
+}
+
+function renderFixedPresets(){
+  var area=document.getElementById('fixed-preset-area');
+  var presets=getFixedPresets();
+  if(!presets.length){ area.innerHTML=''; return; }
+  area.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:6px;">프리셋</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+    +presets.map(function(p){
+      return '<div style="display:flex;align-items:center;gap:4px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;padding:4px 10px 4px 12px;font-size:12px;font-weight:600;cursor:pointer;">'
+        +'<span onclick="applyFixedPreset(\''+p.id+'\')">'+escHtml(p.name)+'</span>'
+        +'<span onclick="deleteFixedPreset(\''+p.id+'\')" style="margin-left:2px;color:var(--muted);font-size:13px;line-height:1;padding:0 2px;">&times;</span>'
+        +'</div>';
+    }).join('')+'</div>';
 }
 
 function toggleFixed(id, val){
