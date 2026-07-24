@@ -4618,6 +4618,13 @@ function _updateJarvisFab(on){
     var tag=(e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea'||e.target.isContentEditable) return;
 
+    /* Delete/Backspace: 편집 모달이 열려있으면 삭제 */
+    if((e.key==='Delete'||e.key==='Backspace') && _editBlockId && document.getElementById('modal-block').classList.contains('open')){
+      e.preventDefault();
+      deleteBlockAndClose();
+      return;
+    }
+
     var shortcut=getJarvisShortcut();
     var key=[];
     if(e.ctrlKey||e.metaKey) key.push('ctrl');
