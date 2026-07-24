@@ -2633,7 +2633,7 @@ function tlNavDate(delta){
   else{
     var d=new Date(tlDate+'T00:00:00');
     d.setDate(d.getDate()+delta);
-    tlDate=d.toISOString().slice(0,10);
+    tlDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   }
   renderTimeline();
 }
@@ -2657,7 +2657,9 @@ function switchCalTab(tab, el){
   document.getElementById('cal-daily-panel').style.display=tab==='daily'?'flex':'none';
   document.getElementById('cal-weekly-panel').style.display=tab==='weekly'?'flex':'none';
   document.getElementById('cal-month-panel').style.display=tab==='month'?'flex':'none';
-  document.getElementById('cal-fixed-panel').style.display=tab==='fixed'?'flex':'none';
+  var fp=document.getElementById('cal-fixed-panel');
+  fp.style.display=tab==='fixed'?'flex':'none';
+  fp.style.flexDirection='column';
   if(tab==='fixed') renderFixedList();
   if(tab==='daily') renderCalDaily();
   if(tab==='weekly') renderCalWeekly();
