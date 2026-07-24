@@ -1449,6 +1449,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('modal-block')">취소</button>
+        <button id="block-delete-btn" class="btn" style="flex:0 0 auto;background:#fee2e2;color:#dc2626;border:none;border-radius:10px;padding:0 16px;cursor:pointer;font-weight:700;display:none;" onclick="deleteBlockAndClose()">삭제</button>
         <button class="btn btn-primary" style="flex:1;" onclick="saveBlock()">저장</button>
       </div>
     </div>
@@ -3535,6 +3536,7 @@ var _blockMode='plan', _editBlockId=null, _blockMood=3;
 
 function openBlockAdd(mode){
   _blockMode=mode; _editBlockId=null; _blockMood=3;
+  document.getElementById('block-delete-btn').style.display='none';
   document.getElementById('modal-block-title').textContent=mode==='plan'?'📋 플랜 블록 추가':'⏱ 트래커 기록 추가';
   document.getElementById('block-title').value='';
   // 현재 시각 기본값
@@ -3563,6 +3565,7 @@ function openBlockEdit(id, mode){
   var rec=mode==='plan'?getAllPlans().find(function(p){ return p.id===id; }):getAllTracks().find(function(t){ return t.id===id; });
   if(!rec) return;
   document.getElementById('modal-block-title').textContent=mode==='plan'?'📋 플랜 편집':'⏱ 트래커 편집';
+  document.getElementById('block-delete-btn').style.display='';
   document.getElementById('block-title').value=rec.title||'';
   document.getElementById('block-start').value=rec.start_time||'';
   document.getElementById('block-end').value=rec.end_time||'';
@@ -3596,6 +3599,15 @@ function setBlockMood(m){
   document.querySelectorAll('[data-mood]').forEach(function(b){
     b.className='btn btn-sm '+(parseInt(b.dataset.mood)===m?'btn-primary':'btn-secondary');
   });
+}
+
+function deleteBlockAndClose(){
+  if(!_editBlockId) return;
+  if(_blockMode==='plan') deletePlan(_editBlockId);
+  else deleteTrack(_editBlockId);
+  closeModal('modal-block');
+  renderTimeline(); renderHome();
+  showToast('삭제됐습니다');
 }
 
 function saveBlock(){
