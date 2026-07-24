@@ -2095,16 +2095,19 @@ function renderGoalList(){
   var cats=allGoals.filter(function(g){ return g.type==='category'; });
   var el=document.getElementById('goal-list');
 
-  var filteredCats=activeCatFilter==='all'?cats:cats.filter(function(c){ return c.id===activeCatFilter; });
-  // 필터된 상태에서 해당 카테고리 하위에 보여줄 골이 있는지 확인
-  var hasContent = filteredCats.some(function(c){
-    return allGoals.some(function(g){ return g.parent_id===c.id && (activeStatusFilter==='all'||g.status===activeStatusFilter); });
+  var allCats=activeCatFilter==='all'?cats:cats.filter(function(c){ return c.id===activeCatFilter; });
+  // 상태 필터가 있을 때는 해당 상태 하위 항목이 있는 카테고리만 표시
+  var filteredCats = activeStatusFilter==='all' ? allCats : allCats.filter(function(c){
+    return allGoals.some(function(g){ return g.parent_id===c.id && g.status===activeStatusFilter; });
   });
   var topLevelNonCat = allGoals.filter(function(g){
     return !g.parent_id && g.type!=='category' && (activeStatusFilter==='all'||g.status===activeStatusFilter);
   });
   if(filteredCats.length===0 && topLevelNonCat.length===0){
-    el.innerHTML='<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>골이 없습니다.<br/>상단의 "골 추가" 버튼으로 시작하세요!</p></div>';
+    var emptyMsg = activeStatusFilter==='active' ? '진행중인 골이 없습니다.<br/><span style="font-size:12px;opacity:.6;">골 편집에서 "진행중"으로 상태를 변경하세요</span>'
+      : activeStatusFilter==='done' ? '완료한 골이 없습니다.'
+      : '골이 없습니다.<br/>상단의 "골 추가" 버튼으로 시작하세요!';
+    el.innerHTML='<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>'+emptyMsg+'</p></div>';
     return;
   }
 
