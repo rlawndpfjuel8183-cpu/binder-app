@@ -1312,7 +1312,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div class="divider"><hr/><span>단계 관리</span><hr/></div>
         <div id="goal-stages-list" style="margin-bottom:8px;"></div>
         <div style="display:flex;gap:6px;">
-          <input type="text" class="inp" id="stage-add-input" placeholder="단계 이름 (예: 기획, 제작, 완료)"/>
+          <input type="text" class="inp" id="stage-add-input" placeholder="단계 이름 (예: 기획, 제작, 완료)" onkeydown="if(event.key==='Enter'){event.preventDefault();addStage();}"/>
           <button class="btn btn-secondary btn-icon" onclick="addStage()"><i class="fa-solid fa-plus"></i></button>
         </div>
       </div>
@@ -3279,6 +3279,7 @@ function addStage(){
   _editStages.push({name:name,id:genId()});
   inp.value='';
   renderStagesList();
+  inp.focus();
 }
 function renderStagesList(){
   var el=document.getElementById('goal-stages-list');
