@@ -448,6 +448,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 .tl-block:hover{opacity:.82;transform:scaleX(.98);}
 .tl-block.fixed-block{cursor:default;opacity:.65;}
 .tl-block.fixed-block:hover{opacity:.65;transform:none;}
+.tl-block.tl-selected{outline:2px solid var(--accent);outline-offset:1px;opacity:1 !important;}
+#tl-select-bar{display:none;position:sticky;top:0;z-index:50;background:var(--accent);color:#fff;padding:8px 16px;font-size:13px;font-weight:700;border-radius:10px;margin:4px 0 6px;align-items:center;gap:10px;}
+#tl-select-bar.active{display:flex;}
 .tl-block-resize-handle{position:absolute;bottom:0;left:0;right:0;height:8px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;}
 .tl-block-resize-handle::before{content:'';width:24px;height:2px;border-radius:2px;background:currentColor;opacity:.5;}
 .tl-block:hover .tl-block-resize-handle{opacity:1;}
@@ -929,6 +932,12 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
           <button class="btn btn-primary btn-sm" onclick="openBlockAdd('plan')">
             <i class="fa-solid fa-plus"></i> 추가
           </button>
+        </div>
+        <!-- 선택 삭제 바 -->
+        <div id="tl-select-bar">
+          <span id="tl-select-count">0개 선택됨</span>
+          <button onclick="deleteSelectedBlocks()" style="margin-left:auto;background:rgba(255,255,255,0.25);border:none;color:#fff;font-weight:700;padding:4px 14px;border-radius:8px;cursor:pointer;">삭제</button>
+          <button onclick="exitSelectMode()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;padding:4px 10px;border-radius:8px;cursor:pointer;">취소</button>
         </div>
         <div class="tl-scroll-wrap" id="tl-scroll">
           <div class="tl-time-grid" id="tl-grid">
@@ -2411,6 +2420,7 @@ function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick, planId
   var h = Math.max((endMin - startMin) * PX_PER_MIN, 20);
   var el = document.createElement('div');
   el.className = 'tl-block' + (isFixed ? ' fixed-block' : '');
+  el._planId = planId;
   // 겹치는 블록 좌우 분할
   col = col || 0; total = total || 1;
   var LABEL_W = 46; // 시간 라벨 너비(px)
@@ -2422,11 +2432,25 @@ function makeTlBlock(title, start, end, color, wakeMin, isFixed, onClick, planId
   el.innerHTML = '<div class="tl-block-title">'+escHtml(title)+'</div>'
     + (h > 30 ? '<div class="tl-block-time" id="tl-block-time-'+planId+'">'+start+' – '+end+'</div>' : '')
     + (!isFixed && planId ? '<div class="tl-block-resize-handle"></div>' : '');
-  if(onClick && !isFixed) {
+  if(!isFixed && planId) {
+    // 길게 누르면 선택 모드 진입
+    var _lpTimer = null;
+    el.addEventListener('pointerdown', function(e){
+      if(e.target.classList.contains('tl-block-resize-handle')) return;
+      _lpTimer = setTimeout(function(){
+        _lpTimer = null;
+        if(!_selectMode) enterSelectMode(planId);
+        else toggleSelectBlock(planId);
+      }, 500);
+    });
+    el.addEventListener('pointerup', function(){ clearTimeout(_lpTimer); _lpTimer = null; });
+    el.addEventListener('pointermove', function(){ clearTimeout(_lpTimer); _lpTimer = null; });
+
     el.onclick = function(e){
       if(e.target.classList.contains('tl-block-resize-handle')) return;
       if(el._wasDragged) { el._wasDragged = false; return; }
-      onClick();
+      if(_selectMode){ toggleSelectBlock(planId); return; }
+      if(onClick) onClick();
     };
   }
   // 드래그 이동 (마우스 + 터치)
@@ -3599,6 +3623,54 @@ function setBlockMood(m){
   document.querySelectorAll('[data-mood]').forEach(function(b){
     b.className='btn btn-sm '+(parseInt(b.dataset.mood)===m?'btn-primary':'btn-secondary');
   });
+}
+
+/* ══════════════════════════════════════════
+   멀티셀렉트 삭제
+══════════════════════════════════════════ */
+var _selectedIds = new Set();
+var _selectMode = false;
+
+function enterSelectMode(id){
+  _selectMode = true;
+  _selectedIds.clear();
+  _selectedIds.add(id);
+  document.getElementById('tl-select-bar').classList.add('active');
+  updateSelectBar();
+  // 선택된 블록 하이라이트
+  refreshSelectHighlights();
+}
+
+function exitSelectMode(){
+  _selectMode = false;
+  _selectedIds.clear();
+  document.getElementById('tl-select-bar').classList.remove('active');
+  refreshSelectHighlights();
+}
+
+function toggleSelectBlock(id){
+  if(_selectedIds.has(id)) _selectedIds.delete(id);
+  else _selectedIds.add(id);
+  if(_selectedIds.size === 0) exitSelectMode();
+  else { updateSelectBar(); refreshSelectHighlights(); }
+}
+
+function updateSelectBar(){
+  document.getElementById('tl-select-count').textContent = _selectedIds.size + '개 선택됨';
+}
+
+function refreshSelectHighlights(){
+  document.querySelectorAll('.tl-block').forEach(function(el){
+    el.classList.toggle('tl-selected', _selectMode && _selectedIds.has(el._planId));
+  });
+}
+
+function deleteSelectedBlocks(){
+  if(!_selectedIds.size) return;
+  _selectedIds.forEach(function(id){ deletePlan(id); });
+  exitSelectMode();
+  renderTimeline(); renderHome();
+  showToast('삭제됐습니다');
 }
 
 function deleteBlockAndClose(){
