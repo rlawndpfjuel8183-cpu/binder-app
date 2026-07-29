@@ -1060,6 +1060,23 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
   </section>
 
   <!-- ── ANALYTICS VIEW ── -->
+  <!-- ═══ 체크표 VIEW ═══ -->
+  <section id="view-checklist" class="view">
+    <div class="topbar">
+      <div class="topbar-title">체크표</div>
+    </div>
+    <div class="view-body">
+      <!-- 자투리 시간 필터 -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;" id="checklist-time-bar">
+        <button class="cat-chip on" data-min="0" onclick="filterChecklistTime(0,this)">전체</button>
+        <button class="cat-chip" data-min="15" onclick="filterChecklistTime(15,this)">⚡ 15분↓</button>
+        <button class="cat-chip" data-min="30" onclick="filterChecklistTime(30,this)">🕐 30분↓</button>
+        <button class="cat-chip" data-min="60" onclick="filterChecklistTime(60,this)">⏱ 1시간↓</button>
+      </div>
+      <div id="checklist-list"></div>
+    </div>
+  </section>
+
   <section id="view-analytics" class="view">
     <div class="topbar">
       <div class="topbar-title">분석</div>
@@ -1161,9 +1178,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <i class="fa-regular fa-calendar gi"></i>
       <span>캘린더</span>
     </button>
-    <button class="gnb-btn" data-view="analytics" onclick="switchView('analytics')">
-      <i class="fa-solid fa-chart-line gi"></i>
-      <span>분석</span>
+    <button class="gnb-btn" data-view="checklist" onclick="switchView('checklist')">
+      <i class="fa-solid fa-list-check gi"></i>
+      <span>체크표</span>
     </button>
   </div>
 </nav>
@@ -1845,6 +1862,7 @@ function switchView(name){
   if(name==='timeline') renderTimeline();
   if(name==='cal') renderCalendar();
   if(name==='analytics') renderAnalytics();
+  if(name==='checklist') renderChecklist();
 }
 document.querySelectorAll('.sb-item').forEach(function(b){
   b.addEventListener('click', function(){ switchView(b.dataset.view); });
@@ -2161,6 +2179,7 @@ function renderGoalList(){
             +'<div style="flex:1;">'
             +'<div style="display:flex;align-items:center;gap:6px;">'
             +'<span class="goal-child-title" style="'+(subDone?'text-decoration:line-through;opacity:.5;':'')+'cursor:text;" onclick="event.stopPropagation();inlineEditChildGoal(this,\''+sub.id+'\')">'+escHtml(sub.title)+'</span>'+subDl
+            +(sub.est_min?'<span style="font-size:10px;color:var(--muted);background:var(--s2);border-radius:6px;padding:1px 5px;flex-shrink:0;">'+formatEstMin(sub.est_min)+'</span>':'')
             +'</div>'
             +(gc.length?'<div style="font-size:10px;color:var(--muted2);margin-top:2px;">하위 '+gc.length+'개</div>':'')
             +(subProg!==null?'<div class="prog-bar" style="margin-top:3px;"><div class="prog-fill" style="width:'+subProg+'%;background:'+subColor+'"></div></div>':'')
@@ -2993,6 +3012,66 @@ function removeFixed(id){
   deleteFixed(id);
   renderFixedList();
   renderHome();
+}
+
+/* ══════════════════════════════════════════
+   CHECKLIST VIEW
+══════════════════════════════════════════ */
+var activeChecklistMin = 0;
+
+function filterChecklistTime(min, el){
+  activeChecklistMin = min;
+  document.querySelectorAll('#checklist-time-bar .cat-chip').forEach(function(c){ c.classList.remove('on'); });
+  el.classList.add('on');
+  renderChecklist();
+}
+
+function renderChecklist(){
+  var el = document.getElementById('checklist-list');
+  if(!el) return;
+  var goals = getGoals();
+  var activeGoals = goals.filter(function(g){
+    return g.status === 'active' && (g.type === 'project' || g.type === 'short_job' || g.type === 'recurring_job');
+  });
+
+  if(!activeGoals.length){
+    el.innerHTML = '<div class="empty-state"><i class="fa-solid fa-list-check"></i><p>진행중인 골이 없습니다</p></div>';
+    return;
+  }
+
+  var html = activeGoals.map(function(g){
+    var children = goals.filter(function(c){ return c.parent_id === g.id; });
+    var done = children.filter(function(c){ return c.status === 'done'; });
+    var active = children.filter(function(c){ return c.status !== 'done'; });
+    var pct = children.length ? Math.round(done.length / children.length * 100) : 0;
+    var color = g.color || '#5B52E8';
+    var filtered = activeChecklistMin === 0 ? active : active.filter(function(c){
+      return c.est_min && c.est_min <= activeChecklistMin;
+    });
+    var typeLabel = g.type === 'recurring_job' ? '정기' : g.type === 'short_job' ? '단기' : '프로젝트';
+
+    var childRows = filtered.length ? filtered.map(function(c){
+      var est = c.est_min ? '<span style="font-size:10px;color:var(--muted);background:var(--s3);border-radius:6px;padding:1px 6px;flex-shrink:0;">'+formatEstMin(c.est_min)+'</span>' : '';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--bdr);">'
+        +'<button onclick="event.stopPropagation();toggleGoalDone(\''+c.id+'\');setTimeout(renderChecklist,100);" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid var(--bdr);background:transparent;cursor:pointer;padding:0;"></button>'
+        +'<span style="flex:1;font-size:13px;font-weight:500;">'+escHtml(c.title)+'</span>'
+        +est+'</div>';
+    }).join('')
+    : (activeChecklistMin > 0
+      ? '<div style="font-size:12px;color:var(--muted);padding:8px 0;">'+activeChecklistMin+'분 이하 항목 없음</div>'
+      : (active.length === 0 ? '<div style="font-size:12px;color:#22c55e;padding:8px 0;font-weight:600;">✅ 모든 항목 완료!</div>' : ''));
+
+    return '<div style="background:var(--s1);border-radius:14px;padding:14px;margin-bottom:10px;border-left:3px solid '+color+';">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">'
+      +'<span style="font-size:14px;font-weight:700;flex:1;">'+escHtml(g.title)+'</span>'
+      +'<span style="font-size:10px;color:var(--muted);background:var(--s2);border-radius:6px;padding:2px 6px;">'+typeLabel+'</span>'
+      +'<span style="font-size:11px;font-weight:700;color:'+color+';">'+pct+'%</span>'
+      +'</div>'
+      +(children.length ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><div class="prog-bar" style="flex:1;"><div class="prog-fill" style="width:'+pct+'%;background:'+color+'"></div></div><span style="font-size:10px;color:var(--muted);">'+done.length+'/'+children.length+'</span></div>' : '')
+      +childRows+'</div>';
+  }).join('');
+
+  el.innerHTML = html;
 }
 
 /* ══════════════════════════════════════════
