@@ -3170,7 +3170,7 @@ function renderWeekChart(){
     }
     // 요일 레이블
     var lx=gx+groupW/2;
-    html+='<text x="'+lx+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="'+(d.isToday?'#5B52E8':'#aaa')+'" font-family="inherit" font-weight="'+(d.isToday?700:500)+'">'+d.label+'</text>';
+    html+='<text x="'+lx+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="'+(d.isToday?'#5B52E8':'#aaa')+'" font-family="Pretendard, -apple-system, sans-serif" font-weight="'+(d.isToday?700:500)+'">'+d.label+'</text>';
   });
   svg.innerHTML=html;
 }
