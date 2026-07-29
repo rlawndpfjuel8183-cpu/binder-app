@@ -1703,6 +1703,22 @@ var DEF_SETTINGS = { wake_time:'06:30', sleep_time:'23:30', api_key:'' };
 
 function getGoals(){ try{ return JSON.parse(localStorage.getItem('b2_goals')||'[]'); }catch(e){ return []; } }
 function saveGoals(arr){ localStorage.setItem('b2_goals', JSON.stringify(arr)); }
+
+// 정기 Job 일일 체크 — 날짜 기반, 자동 리셋
+function getDailyChecks(){ try{ return JSON.parse(localStorage.getItem('b2_daily_checks')||'{}'); }catch(e){ return {}; } }
+function saveDailyChecks(obj){ localStorage.setItem('b2_daily_checks', JSON.stringify(obj)); }
+function isDailyChecked(goalId){
+  var checks = getDailyChecks();
+  return checks[goalId] === TODAY;
+}
+function toggleDailyCheck(goalId){
+  var checks = getDailyChecks();
+  if(checks[goalId] === TODAY) delete checks[goalId];
+  else checks[goalId] = TODAY;
+  saveDailyChecks(checks);
+  renderChecklist();
+  renderHome();
+}
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 var _syncDebounce = null;
 function scheduleSync(){
@@ -3040,20 +3056,55 @@ function renderChecklist(){
   }
 
   var html = activeGoals.map(function(g){
+    var isRecurring = g.type === 'recurring_job';
+    var color = g.color || '#5B52E8';
+    var typeLabel = isRecurring ? '정기' : g.type === 'short_job' ? '단기' : '프로젝트';
     var children = goals.filter(function(c){ return c.parent_id === g.id; });
+
+    // ── 정기 Job: 일일 체크 기반 ──
+    if(isRecurring){
+      var items = children.length ? children : [g]; // 하위 항목 없으면 job 자체를 체크
+      var todayDone = items.filter(function(c){ return isDailyChecked(c.id); });
+      var pct = items.length ? Math.round(todayDone.length / items.length * 100) : 0;
+      var filtered = activeChecklistMin === 0 ? items : items.filter(function(c){
+        return c.est_min && c.est_min <= activeChecklistMin;
+      });
+
+      var rows = filtered.map(function(c){
+        var checked = isDailyChecked(c.id);
+        var est = c.est_min ? '<span style="font-size:10px;color:var(--muted);background:var(--s3);border-radius:6px;padding:1px 6px;flex-shrink:0;">'+formatEstMin(c.est_min)+'</span>' : '';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--bdr);">'
+          +'<button onclick="toggleDailyCheck(\''+c.id+'\')" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid '+(checked?color:'var(--bdr)')+';background:'+(checked?color:'transparent')+';cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">'
+          +(checked?'<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>':'')
+          +'</button>'
+          +'<span style="flex:1;font-size:13px;font-weight:500;'+(checked?'text-decoration:line-through;opacity:.4;':'')+'">'+escHtml(c.title)+'</span>'
+          +est+'</div>';
+      }).join('');
+
+      if(!rows && activeChecklistMin > 0) rows = '<div style="font-size:12px;color:var(--muted);padding:8px 0;">'+activeChecklistMin+'분 이하 항목 없음</div>';
+
+      return '<div style="background:var(--s1);border-radius:14px;padding:14px;margin-bottom:10px;border-left:3px solid '+color+';">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">'
+        +'<span style="font-size:14px;font-weight:700;flex:1;">'+escHtml(g.title)+'</span>'
+        +'<span style="font-size:10px;color:var(--muted);background:var(--s2);border-radius:6px;padding:2px 6px;">'+typeLabel+' · 오늘</span>'
+        +(pct===100?'<span style="font-size:11px;color:#22c55e;font-weight:700;">✅ 완료</span>':'<span style="font-size:11px;font-weight:700;color:'+color+';">'+todayDone.length+'/'+items.length+'</span>')
+        +'</div>'
+        +(items.length > 1 ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div class="prog-bar" style="flex:1;"><div class="prog-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div>' : '')
+        +rows+'</div>';
+    }
+
+    // ── 프로젝트/단기 Job: 영구 완료 기반 ──
     var done = children.filter(function(c){ return c.status === 'done'; });
     var active = children.filter(function(c){ return c.status !== 'done'; });
     var pct = children.length ? Math.round(done.length / children.length * 100) : 0;
-    var color = g.color || '#5B52E8';
     var filtered = activeChecklistMin === 0 ? active : active.filter(function(c){
       return c.est_min && c.est_min <= activeChecklistMin;
     });
-    var typeLabel = g.type === 'recurring_job' ? '정기' : g.type === 'short_job' ? '단기' : '프로젝트';
 
     var childRows = filtered.length ? filtered.map(function(c){
       var est = c.est_min ? '<span style="font-size:10px;color:var(--muted);background:var(--s3);border-radius:6px;padding:1px 6px;flex-shrink:0;">'+formatEstMin(c.est_min)+'</span>' : '';
       return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--bdr);">'
-        +'<button onclick="event.stopPropagation();toggleGoalDone(\''+c.id+'\');setTimeout(renderChecklist,100);" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid var(--bdr);background:transparent;cursor:pointer;padding:0;"></button>'
+        +'<button onclick="toggleGoalDone(\''+c.id+'\');setTimeout(renderChecklist,100);" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid var(--bdr);background:transparent;cursor:pointer;padding:0;"></button>'
         +'<span style="flex:1;font-size:13px;font-weight:500;">'+escHtml(c.title)+'</span>'
         +est+'</div>';
     }).join('')
