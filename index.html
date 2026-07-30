@@ -1111,8 +1111,16 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div class="ai-report-output" id="ai-report-output">리포트 생성 버튼을 눌러 오늘의 AI 피드백을 받아보세요.</div>
       </div>
 
+      <!-- 주간/월간 리뷰 -->
+      <div class="divider" style="margin:20px 0 12px;"><hr/><span>리뷰</span><hr/></div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;" id="review-period-bar">
+        <button class="cat-chip on" data-period="week" onclick="switchReviewPeriod('week',this)">이번 주</button>
+        <button class="cat-chip" data-period="month" onclick="switchReviewPeriod('month',this)">이번 달</button>
+      </div>
+      <div id="review-content"></div>
+
       <!-- AI 코치 -->
-      <div>
+      <div style="margin-top:20px;">
         <div class="section-header" style="margin-bottom:10px;"><span class="section-title">💬 AI 코치</span></div>
         <div class="ai-chat">
           <div class="ai-chat-msgs" id="ai-chat-msgs">
@@ -1675,20 +1683,29 @@ var DEF_SETTINGS = { wake_time:'06:30', sleep_time:'23:30', api_key:'' };
 function getGoals(){ try{ return JSON.parse(localStorage.getItem('b2_goals')||'[]'); }catch(e){ return []; } }
 function saveGoals(arr){ localStorage.setItem('b2_goals', JSON.stringify(arr)); }
 
-// 정기 Job 일일 체크 — 날짜 기반, 자동 리셋
+// 정기 Job 일일 체크 — 날짜 배열로 누적 저장
+// 구조: { goalId: ['2026-07-29', '2026-07-30', ...] }
 function getDailyChecks(){ try{ return JSON.parse(localStorage.getItem('b2_daily_checks')||'{}'); }catch(e){ return {}; } }
 function saveDailyChecks(obj){ localStorage.setItem('b2_daily_checks', JSON.stringify(obj)); }
 function isDailyChecked(goalId){
   var checks = getDailyChecks();
-  return checks[goalId] === TODAY;
+  return !!(checks[goalId] && checks[goalId].indexOf(TODAY) >= 0);
 }
 function toggleDailyCheck(goalId){
   var checks = getDailyChecks();
-  if(checks[goalId] === TODAY) delete checks[goalId];
-  else checks[goalId] = TODAY;
+  var dates = checks[goalId] || [];
+  var idx = dates.indexOf(TODAY);
+  if(idx >= 0) dates.splice(idx, 1);
+  else dates.push(TODAY);
+  checks[goalId] = dates;
   saveDailyChecks(checks);
+  scheduleSync();
   renderChecklist();
   renderHome();
+}
+function getDailyCheckDates(goalId){
+  var checks = getDailyChecks();
+  return checks[goalId] || [];
 }
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 var _syncDebounce = null;
@@ -1849,7 +1866,7 @@ function switchView(name){
   if(name==='timeline') renderTimeline();
   if(name==='cal') renderCalendar();
   if(name==='analytics'||name==='checklist') renderAnalytics();
-  if(name==='checklist') renderChecklist();
+  if(name==='checklist'){ renderChecklist(); renderReview(); }
 }
 document.querySelectorAll('.sb-item').forEach(function(b){
   b.addEventListener('click', function(){ switchView(b.dataset.view); });
@@ -2234,6 +2251,8 @@ function toggleGoalDone(id){
   var g=getGoals().find(function(x){ return x.id===id; });
   if(!g) return;
   g.status = g.status==='done' ? 'active' : 'done';
+  if(g.status==='done') g.completed_at = new Date().toISOString();
+  else delete g.completed_at;
   upsertGoal(g);
   renderGoals(); renderHome();
   showToast(g.status==='done'?'✅ 완료 처리됐습니다!':'↩️ 진행중으로 되돌렸습니다');
@@ -3011,6 +3030,94 @@ function filterChecklistTime(min, el){
   document.querySelectorAll('#checklist-time-bar .cat-chip').forEach(function(c){ c.classList.remove('on'); });
   el.classList.add('on');
   renderChecklist();
+}
+
+var activeReviewPeriod = 'week';
+function switchReviewPeriod(period, el){
+  activeReviewPeriod = period;
+  document.querySelectorAll('#review-period-bar .cat-chip').forEach(function(c){ c.classList.remove('on'); });
+  el.classList.add('on');
+  renderReview();
+}
+
+function renderReview(){
+  var el = document.getElementById('review-content');
+  if(!el) return;
+  var goals = getGoals();
+  var checks = getDailyChecks();
+  var now = new Date();
+
+  // 기간 범위 계산
+  var startDate, endDate = TODAY;
+  if(activeReviewPeriod === 'week'){
+    var d = new Date(now); d.setDate(d.getDate() - 6);
+    startDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  } else {
+    startDate = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  }
+
+  // 완료된 골 (기간 내)
+  var doneGoals = goals.filter(function(g){
+    if(g.status !== 'done' || !g.completed_at) return false;
+    var cd = g.completed_at.slice(0,10);
+    return cd >= startDate && cd <= endDate;
+  });
+
+  // 정기 Job 체크 히스토리
+  var recurringJobs = goals.filter(function(g){ return g.type === 'recurring_job' && g.status === 'active'; });
+
+  // 날짜 범위 배열 생성
+  var dateRange = [];
+  var cur = new Date(startDate+'T00:00:00');
+  var end = new Date(endDate+'T00:00:00');
+  while(cur <= end){
+    dateRange.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
+    cur.setDate(cur.getDate()+1);
+  }
+
+  // 완료 골 섹션
+  var doneHtml = doneGoals.length ? doneGoals.map(function(g){
+    var color = g.color||'#5B52E8';
+    var cd = g.completed_at ? g.completed_at.slice(0,10) : '';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border-radius:10px;margin-bottom:4px;">'
+      +'<i class="fa-solid fa-circle-check" style="color:'+color+';font-size:16px;flex-shrink:0;"></i>'
+      +'<span style="flex:1;font-size:13px;font-weight:600;">'+escHtml(g.title)+'</span>'
+      +'<span style="font-size:10px;color:var(--muted);">'+cd+'</span>'
+      +'</div>';
+  }).join('') : '<div style="font-size:12px;color:var(--muted);padding:6px 0;">이 기간에 완료한 골이 없어요</div>';
+
+  // 정기 Job 달력 도트
+  var recurHtml = recurringJobs.length ? recurringJobs.map(function(g){
+    var color = g.color||'#5B52E8';
+    var children = goals.filter(function(c){ return c.parent_id===g.id; });
+    var items = children.length ? children : [g];
+    var dots = dateRange.map(function(dt){
+      var allChecked = items.every(function(c){ return getDailyCheckDates(c.id).indexOf(dt) >= 0; });
+      var anyChecked = items.some(function(c){ return getDailyCheckDates(c.id).indexOf(dt) >= 0; });
+      var isToday = dt === TODAY;
+      var bg = allChecked ? color : anyChecked ? color+'88' : 'var(--bdr)';
+      var dayNum = parseInt(dt.slice(8));
+      return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">'
+        +'<div style="width:20px;height:20px;border-radius:50%;background:'+bg+';border:'+(isToday?'2px solid '+color:'none')+';"></div>'
+        +'<span style="font-size:9px;color:var(--muted2);">'+dayNum+'</span>'
+        +'</div>';
+    }).join('');
+    var checkedDays = dateRange.filter(function(dt){
+      return items.every(function(c){ return getDailyCheckDates(c.id).indexOf(dt) >= 0; });
+    }).length;
+    return '<div style="background:var(--s2);border-radius:10px;padding:10px;margin-bottom:8px;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">'
+      +'<span style="font-size:13px;font-weight:700;flex:1;">'+escHtml(g.title)+'</span>'
+      +'<span style="font-size:11px;font-weight:700;color:'+color+';">'+checkedDays+'/'+dateRange.length+'일</span>'
+      +'</div>'
+      +'<div style="display:flex;gap:4px;flex-wrap:wrap;">'+dots+'</div>'
+      +'</div>';
+  }).join('') : '';
+
+  el.innerHTML = '<div style="margin-bottom:12px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin-bottom:8px;">완료한 골 · '+doneGoals.length+'개</div>'
+    +doneHtml+'</div>'
+    +(recurHtml ? '<div><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin-bottom:8px;">정기 Job 달성률</div>'+recurHtml+'</div>' : '');
 }
 
 function renderChecklist(){
