@@ -3150,13 +3150,13 @@ function renderChecklist(){
 
       var rows = filtered.map(function(c){
         var checked = isDailyChecked(c.id);
-        var est = c.est_min ? '<span style="font-size:10px;color:var(--muted);background:var(--s3);border-radius:6px;padding:1px 6px;flex-shrink:0;">'+formatEstMin(c.est_min)+'</span>' : '';
+        var estBtn = '<span onclick="inlineEditEstMin(this,\''+c.id+'\')" style="font-size:10px;color:'+(c.est_min?'var(--muted)':'var(--muted2)')+';background:var(--s3);border-radius:6px;padding:1px 6px;flex-shrink:0;cursor:pointer;'+(c.est_min?'':'border:1px dashed var(--bdr);')+'">'+(c.est_min?formatEstMin(c.est_min):'+ 시간')+'</span>';
         return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--bdr);">'
           +'<button onclick="toggleDailyCheck(\''+c.id+'\')" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid '+(checked?color:'var(--bdr)')+';background:'+(checked?color:'transparent')+';cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">'
           +(checked?'<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>':'')
           +'</button>'
           +'<span style="flex:1;font-size:13px;font-weight:500;'+(checked?'text-decoration:line-through;opacity:.4;':'')+'">'+escHtml(c.title)+'</span>'
-          +est+'</div>';
+          +estBtn+'</div>';
       }).join('');
 
       if(!rows && activeChecklistMin > 0) rows = '<div style="font-size:12px;color:var(--muted);padding:8px 0;">'+activeChecklistMin+'분 이하 항목 없음</div>';
@@ -3180,11 +3180,11 @@ function renderChecklist(){
     });
 
     var childRows = filtered.length ? filtered.map(function(c){
-      var est = c.est_min ? '<span style="font-size:10px;color:var(--muted);background:var(--s3);border-radius:6px;padding:1px 6px;flex-shrink:0;">'+formatEstMin(c.est_min)+'</span>' : '';
+      var estBtn = '<span onclick="inlineEditEstMin(this,\''+c.id+'\')" style="font-size:10px;color:'+(c.est_min?'var(--muted)':'var(--muted2)')+';background:var(--s3);border-radius:6px;padding:1px 6px;flex-shrink:0;cursor:pointer;'+(c.est_min?'':'border:1px dashed var(--bdr);')+'">'+(c.est_min?formatEstMin(c.est_min):'+ 시간')+'</span>';
       return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--bdr);">'
         +'<button onclick="toggleGoalDone(\''+c.id+'\');setTimeout(renderChecklist,100);" style="flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid var(--bdr);background:transparent;cursor:pointer;padding:0;"></button>'
         +'<span style="flex:1;font-size:13px;font-weight:500;">'+escHtml(c.title)+'</span>'
-        +est+'</div>';
+        +estBtn+'</div>';
     }).join('')
     : (activeChecklistMin > 0
       ? '<div style="font-size:12px;color:var(--muted);padding:8px 0;">'+activeChecklistMin+'분 이하 항목 없음</div>'
@@ -3534,6 +3534,32 @@ function formatEstMin(m){
   if(!m) return '';
   var h=Math.floor(m/60), min=m%60;
   return (h>0?h+'시간 ':'')+(min>0?min+'분':'');
+}
+
+function inlineEditEstMin(el, goalId){
+  var g = getGoals().find(function(x){ return x.id===goalId; });
+  if(!g) return;
+  var old = g.est_min || '';
+  var inp = document.createElement('input');
+  inp.type = 'number';
+  inp.placeholder = '분';
+  inp.min = 5; inp.max = 480; inp.step = 5;
+  inp.value = old;
+  inp.style.cssText = 'width:52px;font-size:11px;border:none;border-bottom:2px solid var(--indigo);background:transparent;outline:none;color:var(--text);text-align:center;';
+  el.replaceWith(inp);
+  inp.focus(); inp.select();
+  function save(){
+    var v = parseInt(inp.value);
+    g.est_min = v > 0 ? v : null;
+    upsertGoal(g);
+    renderChecklist();
+    renderReview();
+  }
+  inp.addEventListener('blur', save);
+  inp.addEventListener('keydown', function(e){
+    if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+    if(e.key==='Escape'){ inp.value=old; inp.blur(); }
+  });
 }
 
 document.getElementById('goal-est-min').addEventListener('input',function(){
