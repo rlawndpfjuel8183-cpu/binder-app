@@ -718,7 +718,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 <aside id="sidebar">
   <div class="sb-logo">BINDER</div>
   <nav class="sb-nav">
-    <button class="sb-item on" data-view="home">
+    <button class="sb-item" data-view="home">
       <i class="fa-solid fa-house"></i><span class="sb-label">홈</span>
     </button>
     <button class="sb-item" data-view="goal">
@@ -744,7 +744,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 <div id="app">
 
   <!-- ── HOME VIEW ── -->
-  <section id="view-home" class="view active">
+  <section id="view-home" class="view">
     <div class="topbar">
       <div>
         <div class="topbar-title" id="home-date-title">오늘</div>
@@ -1141,7 +1141,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 <!-- ═══ BOTTOM NAV ═══ -->
 <nav id="gnb">
   <div class="gnb-row">
-    <button class="gnb-btn on" data-view="home" onclick="switchView('home')">
+    <button class="gnb-btn" data-view="home" onclick="switchView('home')">
       <i class="fa-solid fa-house gi"></i>
       <span>홈</span>
     </button>
@@ -6058,7 +6058,7 @@ async function syncToSupabase(showMsg){
 
 async function init(){
   applyTheme();
-  renderHome();
+  switchView('timeline');
   // Supabase 세션 체크 (OAuth 콜백 포함)
   supa.auth.onAuthStateChange(function(event, session){
     if(session) onSupaLogin(session);
