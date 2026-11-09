@@ -1247,6 +1247,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
   <section id="view-log" class="view">
     <div class="topbar">
       <div class="topbar-title">기록</div>
+      <button onclick="openReportModal()" style="height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        <i class="fa-solid fa-file-invoice"></i> 보고서
+      </button>
     </div>
     <div class="view-body" style="padding-bottom:100px;">
 
@@ -1257,6 +1260,10 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
           oninput="updateLogParseBtn()"></textarea>
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="flex:1;font-size:12px;line-height:1.5;color:var(--muted);">예) [바인더 앱] 다크모드 토큰 정리 완료</span>
+          <button id="log-mic-btn" onclick="logStartVoice()"
+            style="width:40px;height:40px;border-radius:999px;border:1px solid var(--line);background:var(--raised);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+            <i class="fa-solid fa-microphone"></i>
+          </button>
           <button id="log-parse-btn" class="btn-ai btn-ai-sm" onclick="logParseEntries()"
             style="height:40px;padding:0 16px;border-radius:999px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">
             <i class="fa-solid fa-wand-magic-sparkles"></i> AI 파싱
@@ -1787,6 +1794,47 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 </div>
 
 <!-- ═══ AI PARSE RESULT MODAL ═══ -->
+<!-- 일일 보고서 모달 -->
+<div class="modal-overlay" id="modal-report" onclick="closeModal('modal-report',event)">
+  <div class="modal-box" style="max-height:85vh;overflow-y:auto;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 일일 업무 보고서</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;" id="report-date-label"></p>
+
+    <!-- 오늘 한 일 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;margin-bottom:6px;">✅ 오늘 한 일</div>
+      <textarea id="report-done" rows="4"
+        style="width:100%;box-sizing:border-box;resize:none;border:1px solid var(--line);border-radius:14px;background:var(--raised);color:var(--text);padding:10px 12px;font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.6;outline:none;"></textarea>
+    </div>
+
+    <!-- 내일 할 일 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;margin-bottom:6px;">📌 내일 할 일</div>
+      <textarea id="report-plan" rows="3"
+        style="width:100%;box-sizing:border-box;resize:none;border:1px solid var(--line);border-radius:14px;background:var(--raised);color:var(--text);padding:10px 12px;font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.6;outline:none;"></textarea>
+    </div>
+
+    <!-- 이슈 -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;margin-bottom:6px;">⚠️ 이슈 / 특이사항</div>
+      <textarea id="report-issue" rows="2"
+        style="width:100%;box-sizing:border-box;resize:none;border:1px solid var(--line);border-radius:14px;background:var(--raised);color:var(--text);padding:10px 12px;font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.6;outline:none;"></textarea>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn-ai btn-ai-sm" onclick="reportAutoFill()" style="height:38px;padding:0 14px;border-radius:999px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> AI 자동완성
+      </button>
+      <button class="btn btn-secondary" style="flex:1;min-width:80px;" onclick="copyReport()">
+        <i class="fa-regular fa-copy"></i> 복사
+      </button>
+      <button class="btn btn-primary" style="flex:1;min-width:80px;" onclick="closeModal('modal-report')">확인</button>
+    </div>
+    <div id="report-copy-msg" style="display:none;margin-top:10px;font-size:12px;color:var(--point);text-align:center;">클립보드에 복사됐어요 ✓</div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-ai-result" onclick="closeModal('modal-ai-result',event)">
   <div class="modal-box">
     <div class="modal-handle"></div>
@@ -4348,22 +4396,76 @@ function updateLogParseBtn(){
   btn.style.cursor=has?'pointer':'not-allowed';
 }
 
-function logParseEntries(){
+async function logParseEntries(){
   var draft=document.getElementById('log-draft');
+  var btn=document.getElementById('log-parse-btn');
   if(!draft) return;
-  var lines=draft.value.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
-  if(!lines.length) return;
+  var text=draft.value.trim();
+  if(!text) return;
+
+  /* 프로젝트 목록 수집 */
+  var goals=JSON.parse(localStorage.getItem('b2_goals')||'[]');
+  var projectNames=goals.map(function(g){return g.title;}).filter(Boolean);
+
+  /* AI 파싱 시도 */
+  var key=getApiKey&&getApiKey();
+  if(key){
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> AI 파싱 중...';}
+    var sysPrompt='너는 업무 기록 파서야. 사용자의 메모를 분석해서 JSON 배열로 반환해.\n'+
+      '오늘 날짜: '+TODAY+'\n'+
+      '알려진 프로젝트: '+(projectNames.length?projectNames.join(', '):'없음')+'\n'+
+      '각 항목은 다음 필드를 포함해야 해:\n'+
+      '- project: string (알려진 프로젝트 이름 중 하나이거나 "기타")\n'+
+      '- status: "done"|"doing"|"issue"|"plan"\n'+
+      '- content: string (간결하게 정리된 업무 내용)\n'+
+      '- is_work: boolean\n'+
+      '오직 JSON 배열만 반환하고 다른 텍스트는 없어야 해. 예: [{"project":"프로젝트A","status":"done","content":"기능 구현 완료","is_work":true}]';
+    var result=await callGemini(sysPrompt, text);
+    if(result){
+      try{
+        var clean=result.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+        var items=JSON.parse(clean);
+        if(!Array.isArray(items)) throw new Error('not array');
+        var now=new Date();
+        var hh=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
+        var parsed=items.map(function(item,i){
+          return {
+            id:'e'+Date.now()+i,
+            project:item.project||'기타',
+            text:item.content||text,
+            time:item.status==='plan'?'예정':hh,
+            status:item.status||'done',
+            isNew:true,
+            date:now.toISOString().slice(0,10)
+          };
+        });
+        logEntries=parsed.concat(logEntries.map(function(e){return Object.assign({},e,{isNew:false});}));
+        saveLogEntries();
+        draft.value='';
+        updateLogParseBtn();
+        logFilter='all';
+        renderLogFeed();
+        showToast('✦ AI가 '+parsed.length+'개 항목을 파싱했어요');
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> AI 파싱';}
+        return;
+      }catch(e){}
+    }
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> AI 파싱';}
+  }
+
+  /* AI 없을 때 fallback: 정규식 파싱 */
+  var lines=text.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
   var now=new Date();
   var hh=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
   var parsed=lines.map(function(line,i){
-    var project='기타'; var text=line;
+    var project='기타'; var txt=line;
     var m=line.match(/^\[([^\]]+)\]\s*(.*)$/);
-    if(m){project=m[1];text=m[2]||m[1];}
+    if(m){project=m[1];txt=m[2]||m[1];}
     var status='done';
     if(/이슈|문제|버그|막힘|지연|오류|에러/.test(line)) status='issue';
     else if(/예정|내일|다음 주|해야|할 것/.test(line)) status='plan';
     else if(/중$|중 |진행|작업 중|작성 중|검토 중/.test(line)) status='doing';
-    return {id:'e'+Date.now()+i,project:project,text:text,time:status==='plan'?'예정':hh,status:status,isNew:true,date:now.toISOString().slice(0,10)};
+    return {id:'e'+Date.now()+i,project:project,text:txt,time:status==='plan'?'예정':hh,status:status,isNew:true,date:now.toISOString().slice(0,10)};
   });
   logEntries=parsed.concat(logEntries.map(function(e){return Object.assign({},e,{isNew:false});}));
   saveLogEntries();
@@ -4372,6 +4474,39 @@ function logParseEntries(){
   logFilter='all';
   renderLogFeed();
   showToast('✦ '+parsed.length+'개 항목이 추가됐어요');
+}
+
+function logStartVoice(){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    showToast('이 브라우저는 음성 인식을 지원하지 않아요');
+    return;
+  }
+  var btn=document.getElementById('log-mic-btn');
+  var draft=document.getElementById('log-draft');
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var rec=new SR();
+  rec.lang='ko-KR';
+  rec.interimResults=false;
+  rec.maxAlternatives=1;
+  if(btn){btn.style.color='var(--point)';btn.style.borderColor='var(--point)';}
+  showToast('🎙 말씀해 주세요...');
+  rec.onresult=function(e){
+    var text=e.results[0][0].transcript;
+    if(draft){
+      draft.value=(draft.value?draft.value+'\n':'')+text;
+      updateLogParseBtn();
+    }
+    if(btn){btn.style.color='';btn.style.borderColor='';}
+    showToast('✦ 음성이 입력됐어요');
+  };
+  rec.onerror=function(e){
+    if(btn){btn.style.color='';btn.style.borderColor='';}
+    showToast('음성 인식 오류: '+e.error);
+  };
+  rec.onend=function(){
+    if(btn){btn.style.color='';btn.style.borderColor='';}
+  };
+  rec.start();
 }
 
 function renderLogFeed(){
@@ -4427,6 +4562,78 @@ async function generateReport(){
   var system='당신은 친절하고 실용적인 생산성 코치입니다. 사용자의 하루 데이터를 분석해서 한국어로 200자 내외의 간결하고 격려하는 피드백을 제공하세요. 구체적인 통계와 개선 제안을 포함하세요.';
   var result=await callClaude(system, '오늘 데이터: '+ctx);
   el.textContent=result||'리포트 생성에 실패했습니다.';
+}
+
+/* ══════════════════════════════════════════
+   일일 보고서 모달
+══════════════════════════════════════════ */
+function openReportModal(){
+  var today=new Date();
+  var label=document.getElementById('report-date-label');
+  if(label) label.textContent=today.getFullYear()+'년 '+(today.getMonth()+1)+'월 '+today.getDate()+'일 보고서';
+
+  /* 활동 기록에서 자동 채우기 */
+  var entries=JSON.parse(localStorage.getItem('b2_activities')||'[]');
+  var todayStr=today.toISOString().slice(0,10);
+  var todayEntries=entries.filter(function(e){return !e.date||e.date===todayStr;});
+  var doneItems=todayEntries.filter(function(e){return e.status==='done';});
+  var planItems=todayEntries.filter(function(e){return e.status==='plan';});
+  var issueItems=todayEntries.filter(function(e){return e.status==='issue';});
+
+  var doneEl=document.getElementById('report-done');
+  var planEl=document.getElementById('report-plan');
+  var issueEl=document.getElementById('report-issue');
+
+  if(doneEl && !doneEl.value){
+    doneEl.value=doneItems.map(function(e){return '- ['+e.project+'] '+e.text;}).join('\n');
+  }
+  if(planEl && !planEl.value){
+    planEl.value=planItems.map(function(e){return '- ['+e.project+'] '+e.text;}).join('\n');
+  }
+  if(issueEl && !issueEl.value){
+    issueEl.value=issueItems.map(function(e){return '- ['+e.project+'] '+e.text;}).join('\n');
+  }
+
+  document.getElementById('report-copy-msg').style.display='none';
+  openModal('modal-report');
+}
+
+async function reportAutoFill(){
+  var entries=JSON.parse(localStorage.getItem('b2_activities')||'[]');
+  var today=new Date().toISOString().slice(0,10);
+  var todayEntries=entries.filter(function(e){return !e.date||e.date===today;});
+  if(!todayEntries.length){ showToast('오늘 기록된 활동이 없어요'); return; }
+
+  var btn=document.querySelector('#modal-report .btn-ai');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> 작성 중...';}
+
+  var rawData=todayEntries.map(function(e){return '['+e.status+'] ['+e.project+'] '+e.text;}).join('\n');
+  var sys='너는 업무 보고서 작성 도우미야. 아래 오늘의 활동 목록을 바탕으로 세 섹션을 각각 작성해.\n'+
+    '형식: JSON {"done":"...", "plan":"...", "issue":"..."}\n'+
+    '"done"은 오늘 완료한 항목들을 불릿으로, "plan"은 내일 예정 업무를 불릿으로, "issue"는 이슈/특이사항을 불릿으로.\n'+
+    '이슈가 없으면 "issue"는 "없음"으로. 한국어로 간결하게. JSON만 반환.';
+  var result=await callGemini(sys, '활동 목록:\n'+rawData);
+  if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> AI 자동완성';}
+  if(!result){ showToast('AI 오류가 발생했어요'); return; }
+  try{
+    var clean=result.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    var obj=JSON.parse(clean);
+    if(obj.done) document.getElementById('report-done').value=obj.done;
+    if(obj.plan) document.getElementById('report-plan').value=obj.plan;
+    if(obj.issue) document.getElementById('report-issue').value=obj.issue;
+  }catch(e){ showToast('파싱 오류: AI 응답을 확인하세요'); }
+}
+
+function copyReport(){
+  var dateLabel=document.getElementById('report-date-label').textContent;
+  var done=document.getElementById('report-done').value.trim();
+  var plan=document.getElementById('report-plan').value.trim();
+  var issue=document.getElementById('report-issue').value.trim();
+  var text='['+dateLabel+']\n\n✅ 오늘 한 일\n'+(done||'없음')+'\n\n📌 내일 할 일\n'+(plan||'없음')+'\n\n⚠️ 이슈/특이사항\n'+(issue||'없음');
+  navigator.clipboard.writeText(text).then(function(){
+    var msg=document.getElementById('report-copy-msg');
+    if(msg){msg.style.display='block';}
+  }).catch(function(){ showToast('복사 실패 — 직접 선택해서 복사하세요'); });
 }
 
 /* AI 채팅 */
