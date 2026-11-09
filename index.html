@@ -3893,12 +3893,12 @@ function saveSettings(){
 /* ══════════════════════════════════════════
    GOAL CRUD
 ══════════════════════════════════════════ */
-var _editGoalId=null, _editGoalParentId=null, _editGoalType='category', _editGoalStatus='backlog';
+var _editGoalId=null, _editGoalParentId=null, _editGoalType='category', _editGoalStatus='active';
 var _editGoalPriority=2, _editGoalColor='#5B52E8', _editGoalIsTop=false;
 
 function openGoalAdd(parentId, type){
   _editGoalId=null; _editGoalParentId=parentId; _editGoalType=type||'category';
-  _editGoalStatus='backlog'; _editGoalPriority=2; _editGoalColor=COLORS[0];
+  _editGoalStatus='active'; _editGoalPriority=2; _editGoalColor=COLORS[0];
   document.getElementById('drawer-title').textContent='골 추가';
   document.getElementById('drawer-delete-btn').style.display='none';
   document.getElementById('goal-edit-title').value='';
@@ -3909,7 +3909,7 @@ function openGoalAdd(parentId, type){
   document.getElementById('goal-est-display').textContent='';
   document.getElementById('ai-suggest-result').innerHTML='';
   document.getElementById('goal-children-list').innerHTML='';
-  setGoalStatus('backlog'); setGoalPriority(2);
+  setGoalStatus('active'); setGoalPriority(2);
   buildColorPicker('goal-color-picker', _editGoalColor);
   updateGoalTypeUI();
   openDrawer();
@@ -5103,6 +5103,7 @@ function confirmImportGoals(){
       title:g.title,
       status:'active',
       type:'project',
+      parent_id:null,
       color:_randomGoalColor(),
       created_at:new Date().toISOString()
     };
