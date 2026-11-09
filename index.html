@@ -1190,6 +1190,9 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <h1 class="topbar-title">바인더</h1>
       </div>
       <div class="topbar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openImportGoals()" title="리포트에서 골 가져오기">
+          <i class="fa-solid fa-file-import"></i> 가져오기
+        </button>
         <button class="btn btn-primary btn-sm" onclick="openGoalAdd(null,'project')">
           <i class="fa-solid fa-plus"></i> 골 추가
         </button>
@@ -2049,6 +2052,27 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <button class="btn btn-primary" style="flex:1;min-width:80px;" onclick="closeModal('modal-report')">확인</button>
     </div>
     <div id="report-copy-msg" style="display:none;margin-top:10px;font-size:12px;color:var(--point);text-align:center;">클립보드에 복사됐어요 ✓</div>
+  </div>
+</div>
+
+<!-- ═══ 골 가져오기 모달 ═══ -->
+<div class="modal-overlay" id="modal-import-goals" onclick="closeModal('modal-import-goals',event)">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📥 리포트에서 골 가져오기</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">데일리 리포트를 붙여넣으면 📍 항목들을 골 카드로 만들어요.<br/>➖ 항목은 해당 골의 하위 골로 추가됩니다.</p>
+    <textarea id="import-goals-text" rows="10"
+      style="width:100%;box-sizing:border-box;resize:none;border:1px solid var(--line);border-radius:14px;background:var(--raised);color:var(--text);padding:12px 14px;font-family:'Noto Sans KR',sans-serif;font-size:13px;line-height:1.6;outline:none;"
+      placeholder="2026.11.09 월 Juel's 데일리 리포트&#10;&#10;📍개인&#10;✅ 욥기 36~42장&#10;☑️ 운동&#10;&#10;➖사이버 대학&#10;✅ 영상문화커뮤니케이션 11주차"></textarea>
+    <div id="import-goals-preview" style="margin-top:12px;display:none;"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="previewImportGoals()">
+        <i class="fa-solid fa-eye"></i> 미리보기
+      </button>
+      <button class="btn btn-primary" style="flex:1;" id="import-goals-confirm-btn" onclick="confirmImportGoals()" disabled>
+        <i class="fa-solid fa-check"></i> 골 생성
+      </button>
+    </div>
   </div>
 </div>
 
@@ -4908,8 +4932,8 @@ async function reportAutoFill(){
   var rawData=todayEntries.map(function(e){return '['+e.status+'] ['+e.project+'] '+e.text;}).join('\n');
   var sys='너는 업무 보고서 작성 도우미야. 아래 오늘의 활동 목록을 바탕으로 세 섹션을 각각 작성해.\n'+
     '형식: JSON {"done":"...", "plan":"...", "issue":"..."}\n'+
-    '"done"은 오늘 완료한 항목들을 불릿으로, "plan"은 내일 예정 업무를 불릿으로, "issue"는 이슈/특이사항을 불릿으로.\n'+
-    '이슈가 없으면 "issue"는 "없음"으로. 한국어로 간결하게. JSON만 반환.';
+    '"done"은 완료 항목들을 "✅ 항목명" 형식 줄바꿈으로, "plan"은 미완료/내일 예정 항목들을 "☑️ 항목명" 형식으로, "issue"는 이슈를 "- 내용" 형식으로.\n'+
+    '이슈가 없으면 "issue"는 빈 문자열로. 한국어로 간결하게. JSON만 반환.';
   var result=await callGemini(sys, '활동 목록:\n'+rawData);
   if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> AI 자동완성';}
   if(!result){ showToast('AI 오류가 발생했어요'); return; }
@@ -4923,15 +4947,190 @@ async function reportAutoFill(){
 }
 
 function copyReport(){
-  var dateLabel=document.getElementById('report-date-label').textContent;
-  var done=document.getElementById('report-done').value.trim();
-  var plan=document.getElementById('report-plan').value.trim();
-  var issue=document.getElementById('report-issue').value.trim();
-  var text='['+dateLabel+']\n\n✅ 오늘 한 일\n'+(done||'없음')+'\n\n📌 내일 할 일\n'+(plan||'없음')+'\n\n⚠️ 이슈/특이사항\n'+(issue||'없음');
+  var text=_buildReportText();
   navigator.clipboard.writeText(text).then(function(){
     var msg=document.getElementById('report-copy-msg');
     if(msg){msg.style.display='block';}
   }).catch(function(){ showToast('복사 실패 — 직접 선택해서 복사하세요'); });
+}
+
+function _buildReportText(){
+  /* 오늘 날짜 헤더 */
+  var d=new Date();
+  var dayKo=['일','월','화','수','목','금','토'][d.getDay()];
+  var header=d.getFullYear()+'.'
+    +pad2(d.getMonth()+1)+'.'+pad2(d.getDate())+' '+dayKo
+    +" Juel's 데일리 리포트";
+
+  /* 골 목록 → 📍 섹션 */
+  var goals=getGoals().filter(function(g){ return g.status==='active'; });
+  var plans=getPlans(TODAY).filter(function(p){ return p.type!=='fixed'; });
+
+  /* 골 ID → 이름 맵 */
+  var goalMap={};
+  goals.forEach(function(g){ goalMap[g.id]=g; });
+
+  /* 플랜을 goalId별 그룹핑 (goalId 없으면 null 그룹) */
+  var groups={};
+  plans.forEach(function(p){
+    var gid=p.goalId||p.goal_id||null;
+    var key=gid||'__none__';
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(p);
+  });
+
+  var lines=[header,''];
+
+  /* 골이 있는 그룹 */
+  goals.forEach(function(g){
+    var items=groups[g.id]||[];
+    if(!items.length) return; // 오늘 플랜 없는 골은 생략
+    lines.push('📍'+g.title);
+    items.forEach(function(p){
+      var prefix=p.done?'✅':'☑️';
+      lines.push(prefix+' '+p.title);
+    });
+    lines.push('');
+  });
+
+  /* 골 미연결 플랜 */
+  var loose=groups['__none__']||[];
+  if(loose.length){
+    lines.push('📍기타');
+    loose.forEach(function(p){
+      lines.push((p.done?'✅':'☑️')+' '+p.title);
+    });
+    lines.push('');
+  }
+
+  /* textarea 내용도 반영 (수동 편집분) */
+  var doneEl=document.getElementById('report-done');
+  var planEl=document.getElementById('report-plan');
+  var issueEl=document.getElementById('report-issue');
+  var doneText=(doneEl&&doneEl.value.trim())||'';
+  var planText=(planEl&&planEl.value.trim())||'';
+  var issueText=(issueEl&&issueEl.value.trim())||'';
+
+  /* 플랜 데이터가 없으면 textarea 내용으로 대체 */
+  if(!plans.length && (doneText||planText)){
+    lines=[''];
+    lines.unshift(header);
+    if(doneText){ lines.push('📍오늘 한 일'); doneText.split('\n').forEach(function(l){ lines.push('✅ '+l.replace(/^[-•✅☑️]\s*/,'')); }); lines.push(''); }
+    if(planText){ lines.push('📍내일 할 일'); planText.split('\n').forEach(function(l){ lines.push('☑️ '+l.replace(/^[-•✅☑️]\s*/,'')); }); lines.push(''); }
+    if(issueText){ lines.push('📍이슈'); issueText.split('\n').forEach(function(l){ lines.push('- '+l.replace(/^[-•]\s*/,'')); }); }
+    return lines.join('\n').trim();
+  }
+
+  if(issueText){ lines.push('📍이슈 / 특이사항'); issueText.split('\n').forEach(function(l){ if(l.trim()) lines.push('- '+l.trim()); }); }
+
+  return lines.join('\n').trim();
+}
+
+/* ── 골 가져오기 ── */
+function openImportGoals(){
+  document.getElementById('import-goals-text').value='';
+  document.getElementById('import-goals-preview').style.display='none';
+  document.getElementById('import-goals-confirm-btn').disabled=true;
+  openModal('modal-import-goals');
+}
+
+var _importGoalsParsed=[];
+
+function previewImportGoals(){
+  var text=document.getElementById('import-goals-text').value.trim();
+  if(!text){ showToast('텍스트를 붙여넣어 주세요'); return; }
+
+  _importGoalsParsed=_parseReportGoals(text);
+  var preview=document.getElementById('import-goals-preview');
+  if(!_importGoalsParsed.length){
+    preview.innerHTML='<p style="font-size:12px;color:var(--muted);">📍 항목을 찾지 못했어요. 형식을 확인해 주세요.</p>';
+    preview.style.display='block';
+    return;
+  }
+
+  var existingTitles=getGoals().map(function(g){ return g.title; });
+  var html='<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;">생성될 골 미리보기</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:6px;">';
+  _importGoalsParsed.forEach(function(g){
+    var exists=existingTitles.indexOf(g.title)>=0;
+    html+='<div style="padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--raised);">'
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+      +'<span style="font-size:14px;">📍</span>'
+      +'<span style="font-size:13px;font-weight:700;flex:1;">'+escHtml(g.title)+'</span>'
+      +(exists?'<span style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--amber-soft);color:var(--amber);">이미 있음</span>':'<span style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--point-soft);color:var(--point-soft-text);">새로 생성</span>')
+      +'</div>';
+    if(g.children&&g.children.length){
+      html+='<div style="margin-top:6px;padding-left:22px;display:flex;flex-direction:column;gap:3px;">';
+      g.children.forEach(function(c){
+        html+='<div style="font-size:12px;color:var(--sub);">➖ '+escHtml(c)+'</div>';
+      });
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  html+='</div>';
+
+  preview.innerHTML=html;
+  preview.style.display='block';
+  document.getElementById('import-goals-confirm-btn').disabled=false;
+}
+
+function _parseReportGoals(text){
+  var lines=text.split('\n');
+  var goals=[];
+  var current=null;
+  lines.forEach(function(line){
+    var trimmed=line.trim();
+    if(trimmed.startsWith('📍')){
+      if(current) goals.push(current);
+      current={title:trimmed.replace(/^📍\s*/,''),children:[]};
+    } else if(trimmed.startsWith('➖')&&current){
+      current.children.push(trimmed.replace(/^➖\s*/,''));
+    }
+  });
+  if(current) goals.push(current);
+  return goals;
+}
+
+function confirmImportGoals(){
+  if(!_importGoalsParsed.length){ showToast('먼저 미리보기를 확인하세요'); return; }
+  var existingTitles=getGoals().map(function(g){ return g.title; });
+  var created=0;
+  _importGoalsParsed.forEach(function(g){
+    if(existingTitles.indexOf(g.title)>=0) return; // 중복 스킵
+    var newGoal={
+      id:genId(),
+      title:g.title,
+      status:'active',
+      type:'project',
+      color:_randomGoalColor(),
+      created_at:new Date().toISOString()
+    };
+    upsertGoal(newGoal);
+    created++;
+    /* 하위 골 추가 */
+    g.children.forEach(function(childTitle){
+      var childGoal={
+        id:genId(),
+        title:childTitle,
+        status:'active',
+        type:'project',
+        parent_id:newGoal.id,
+        color:newGoal.color,
+        created_at:new Date().toISOString()
+      };
+      upsertGoal(childGoal);
+    });
+  });
+  closeModal('modal-import-goals');
+  renderGoals();
+  if(created>0) showToast(created+'개 골이 생성됐어요 ✓');
+  else showToast('새로 추가할 골이 없어요 (모두 이미 존재)');
+}
+
+function _randomGoalColor(){
+  var colors=['#6D4AFF','#0284C7','#16A34A','#D97706','#E11D48','#7C3AED','#0891B2'];
+  return colors[Math.floor(Math.random()*colors.length)];
 }
 
 /* AI 채팅 */
