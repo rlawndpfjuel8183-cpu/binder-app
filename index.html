@@ -14,8 +14,9 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
 <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png"/>
 <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png"/>
-<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -23,43 +24,88 @@
 <style>
 /* ── TOKENS ─────────────────────────────── */
 :root{
-  --bg:#F7F4EE;
-  --s1:#FFFFFF;
-  --s2:#F0EDE5;
-  --s3:#E8E4DB;
-  --bdr:rgba(0,0,0,.08);
-  --bdr2:rgba(0,0,0,.14);
-  --text:#1C1917;
-  --muted:rgba(28,25,23,.45);
-  --muted2:rgba(28,25,23,.28);
-  --indigo:#5B52E8;
-  --indigo-light:rgba(91,82,232,.1);
+  /* new design tokens */
+  --bg:#F5F5F7;
+  --surface:#FFFFFF;
+  --raised:#F3F3F6;
+  --track:#EAEAEE;
+  --ring:#ECECF0;
+  --line:#E9E9EE;
+  --text:#16161A;
+  --sub:#45454F;
+  --muted:#6B6B76;
+  --box:#C4C4CC;
+  --point:#6D4AFF;
+  --on-point:#FFFFFF;
+  --point-soft:#EFEBFF;
+  --point-soft-text:#5133D6;
+  --point-border:#DCD3FF;
+  --focus:#6D4AFF;
+  --on-focus:#FFFFFF;
+  --on-focus-muted:#EDE8FF;
+  --amber:#A04E05;
+  --amber-soft:#FFF1E0;
+  --paper:#F7F1E3;
+  --on-paper:#4A3F2A;
+  --paper-muted:#6E624B;
+  --tab-active-bg:#FFFFFF;
+  --tab-active-text:#16161A;
+  --tab-shadow:0 1px 3px rgba(22,22,26,0.10);
+  --card-shadow:0 1px 2px rgba(22,22,26,0.04),0 6px 20px rgba(22,22,26,0.05);
+  --nav-shadow:0 10px 30px rgba(22,22,26,0.12);
+  /* legacy aliases */
+  --s1:var(--surface);
+  --s2:var(--raised);
+  --s3:var(--track);
+  --bdr:var(--line);
+  --bdr2:#D4D4D8;
+  --muted2:rgba(107,107,118,.55);
+  --indigo:var(--point);
+  --indigo-light:var(--point-soft);
   --cyan:#0284C7;
   --green:#16A34A;
-  --amber:#D97706;
   --rose:#E11D48;
   --sb-w:0px;
   --radius:14px;
-  --shadow:0 1px 4px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.05);
-  --shadow-md:0 2px 8px rgba(0,0,0,.08),0 8px 28px rgba(0,0,0,.07);
+  --shadow:var(--card-shadow);
+  --shadow-md:0 2px 8px rgba(22,22,26,0.08),0 8px 28px rgba(22,22,26,0.07);
 }
 @media(min-width:768px){:root{--sb-w:64px;}}
 @media(min-width:1280px){:root{--sb-w:220px;}}
 
 /* ── DARK MODE ───────────────────────────── */
 [data-theme="dark"]{
-  --bg:#16141C;
-  --s1:#1E1C26;
-  --s2:#252330;
-  --s3:#2D2B38;
-  --bdr:rgba(255,255,255,.08);
-  --bdr2:rgba(255,255,255,.14);
-  --text:#F0EDE8;
-  --muted:rgba(240,237,232,.45);
-  --muted2:rgba(240,237,232,.28);
-  --indigo:#7B74F8;
-  --indigo-light:rgba(123,116,248,.15);
-  --shadow:0 1px 4px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  --bg:#0E0E11;
+  --surface:#18181D;
+  --raised:#1E1E24;
+  --track:#18181D;
+  --ring:#26262D;
+  --line:#26262D;
+  --text:#F4F4F6;
+  --sub:#D4D4D8;
+  --muted:#A1A1AA;
+  --box:#4A4A54;
+  --point:#FF8A3D;
+  --on-point:#0E0E11;
+  --point-soft:#3A2414;
+  --point-soft-text:#FFB27A;
+  --point-border:#5A3519;
+  --focus:#FF8A3D;
+  --on-focus:#1F1206;
+  --on-focus-muted:#4F250A;
+  --amber:#F2CE5B;
+  --amber-soft:#33301A;
+  --paper:#2B2720;
+  --on-paper:#EDE4D3;
+  --paper-muted:#B5A88F;
+  --tab-active-bg:#3A2414;
+  --tab-active-text:#FFB27A;
+  --tab-shadow:none;
+  --card-shadow:none;
+  --nav-shadow:0 10px 30px rgba(0,0,0,0.45);
+  --bdr2:#4A4A54;
+  --muted2:rgba(161,161,170,.55);
+  --shadow:var(--card-shadow);
   --shadow-md:0 2px 8px rgba(0,0,0,.35),0 8px 28px rgba(0,0,0,.3);
 }
 
@@ -67,10 +113,11 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;}
 body{
-  font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;
+  font-family:'Noto Sans KR',-apple-system,sans-serif;
   background:var(--bg);color:var(--text);font-size:14px;
   -webkit-font-smoothing:antialiased;
 }
+.sg{font-family:'Space Grotesk',sans-serif;}
 button{font-family:inherit;cursor:pointer;}
 input,textarea,select{font-family:inherit;}
 textarea{resize:none;}
@@ -254,23 +301,37 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 
 /* ── BOTTOM NAV ──────────────────────────── */
 #gnb{
-  position:fixed;bottom:0;left:var(--sb-w);right:0;z-index:70;
-  background:rgba(255,253,248,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-top:1px solid var(--bdr);
+  position:fixed;bottom:0;left:0;right:0;z-index:70;
+  padding:0 20px calc(16px + env(safe-area-inset-bottom));
+  pointer-events:none;
 }
 @media(min-width:768px){#gnb{display:none;}}
 .gnb-row{
-  display:flex;align-items:center;justify-content:space-around;
-  padding:8px 6px calc(8px + env(safe-area-inset-bottom));
-  position:relative;
+  pointer-events:all;
+  display:flex;align-items:center;gap:4px;
+  height:60px;padding:6px;box-sizing:border-box;
+  border-radius:999px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  box-shadow:var(--nav-shadow);
 }
 .gnb-btn{
-  display:flex;flex-direction:column;align-items:center;gap:3px;
-  background:none;border:none;color:var(--muted2);padding:4px 12px;
-  font-size:9px;font-weight:600;letter-spacing:.03em;transition:color .18s;
+  flex:1;height:46px;border-radius:999px;
+  border:none;background:transparent;
+  color:var(--muted);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:500;
+  transition:background .18s,color .18s;
 }
-.gnb-btn i{font-size:20px;line-height:1;}
-.gnb-btn.on{color:var(--indigo);}
+.gnb-btn i{font-size:19px;line-height:1;}
+.gnb-btn.on{
+  flex:1.5;
+  background:var(--point-soft);
+  color:var(--point-soft-text);
+  font-weight:700;
+}
+.gnb-btn .gnb-label{display:none;}
+.gnb-btn.on .gnb-label{display:inline;}
 
 /* ── VIEW CONTENT ────────────────────────── */
 .view-body{
@@ -1182,6 +1243,39 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
     </div>
   </section>
 
+  <!-- ═══ 기록 VIEW ═══ -->
+  <section id="view-log" class="view">
+    <div class="topbar">
+      <div class="topbar-title">기록</div>
+    </div>
+    <div class="view-body" style="padding-bottom:100px;">
+
+      <!-- 메모 입력 카드 -->
+      <div style="background:var(--surface);box-shadow:var(--card-shadow);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+        <textarea id="log-draft" placeholder="오늘 한 일을 메모하세요&#10;한 줄에 하나씩. [프로젝트]로 시작하면 자동 분류돼요."
+          style="width:100%;height:120px;box-sizing:border-box;resize:none;border:1px solid var(--line);border-radius:16px;background:var(--raised);color:var(--text);padding:12px 14px;font-family:'Noto Sans KR',sans-serif;font-size:14px;line-height:1.6;outline:none;"
+          oninput="updateLogParseBtn()"></textarea>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="flex:1;font-size:12px;line-height:1.5;color:var(--muted);">예) [바인더 앱] 다크모드 토큰 정리 완료</span>
+          <button id="log-parse-btn" class="btn-ai btn-ai-sm" onclick="logParseEntries()"
+            style="height:40px;padding:0 16px;border-radius:999px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> AI 파싱
+          </button>
+        </div>
+      </div>
+
+      <!-- 활동 피드 -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <h2 style="margin:0;font-size:18px;font-weight:700;">활동 피드</h2>
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--muted);" id="log-feed-date">TODAY</span>
+        </div>
+        <div id="log-filters" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;"></div>
+        <div id="log-feed" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+
+    </div>
+  </section>
 
 </div><!-- #app -->
 
@@ -1189,24 +1283,20 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 <nav id="gnb">
   <div class="gnb-row">
     <button class="gnb-btn" data-view="home" onclick="switchView('home')">
-      <i class="fa-solid fa-house gi"></i>
-      <span>홈</span>
-    </button>
-    <button class="gnb-btn" data-view="goal" onclick="switchView('goal')">
-      <i class="fa-solid fa-bullseye gi"></i>
-      <span>골</span>
-    </button>
-    <button class="gnb-btn" data-view="timeline" onclick="switchView('timeline')">
-      <i class="fa-solid fa-bars-staggered gi"></i>
-      <span>타임라인</span>
-    </button>
-    <button class="gnb-btn" data-view="cal" onclick="switchView('cal')">
-      <i class="fa-regular fa-calendar gi"></i>
-      <span>캘린더</span>
+      <i class="fa-regular fa-calendar-check"></i>
+      <span class="gnb-label">오늘</span>
     </button>
     <button class="gnb-btn" data-view="checklist" onclick="switchView('checklist')">
-      <i class="fa-solid fa-list-check gi"></i>
-      <span>체크표</span>
+      <i class="fa-solid fa-chart-simple"></i>
+      <span class="gnb-label">인사이트</span>
+    </button>
+    <button class="gnb-btn" data-view="log" onclick="switchView('log')">
+      <i class="fa-regular fa-file-lines"></i>
+      <span class="gnb-label">기록</span>
+    </button>
+    <button class="gnb-btn" data-view="goal" onclick="switchView('goal')">
+      <i class="fa-regular fa-bookmark"></i>
+      <span class="gnb-label">바인더</span>
     </button>
   </div>
 </nav>
@@ -1914,6 +2004,7 @@ function switchView(name){
   if(name==='cal') renderCalendar();
   if(name==='analytics'||name==='checklist') renderAnalytics();
   if(name==='checklist'){ renderChecklist(); renderReview(); }
+  if(name==='log') renderLogFeed();
 }
 document.querySelectorAll('.sb-item').forEach(function(b){
   b.addEventListener('click', function(){ switchView(b.dataset.view); });
@@ -4230,6 +4321,94 @@ function confirmAiBlocks(){
   document.getElementById('ai-quick-input').value='';
   showToast(_aiParsedBlocks.length+'개 일정이 추가됐습니다!');
   renderHome();
+}
+
+/* ══════════════════════════════════════════
+   기록 (LOG) VIEW
+══════════════════════════════════════════ */
+var logEntries = JSON.parse(localStorage.getItem('b2_activities')||'[]');
+var logFilter = 'all';
+
+var LOG_STATUS = {
+  done:  { label:'완료',  bg:'var(--point-soft)',  fg:'var(--point-soft-text)', border:'transparent', icon:'fa-check' },
+  doing: { label:'진행중', bg:'var(--raised)',       fg:'var(--text)',            border:'var(--line)',  icon:'fa-rotate' },
+  issue: { label:'이슈',  bg:'var(--amber-soft)',  fg:'var(--amber)',           border:'transparent', icon:'fa-triangle-exclamation' },
+  plan:  { label:'예정',  bg:'transparent',         fg:'var(--muted)',           border:'var(--box)',   icon:'fa-clock' }
+};
+
+function saveLogEntries(){ localStorage.setItem('b2_activities', JSON.stringify(logEntries)); }
+
+function updateLogParseBtn(){
+  var btn=document.getElementById('log-parse-btn');
+  var draft=document.getElementById('log-draft');
+  if(!btn||!draft) return;
+  var has=draft.value.trim().length>0;
+  btn.disabled=!has;
+  btn.style.opacity=has?'1':'.45';
+  btn.style.cursor=has?'pointer':'not-allowed';
+}
+
+function logParseEntries(){
+  var draft=document.getElementById('log-draft');
+  if(!draft) return;
+  var lines=draft.value.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  if(!lines.length) return;
+  var now=new Date();
+  var hh=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
+  var parsed=lines.map(function(line,i){
+    var project='기타'; var text=line;
+    var m=line.match(/^\[([^\]]+)\]\s*(.*)$/);
+    if(m){project=m[1];text=m[2]||m[1];}
+    var status='done';
+    if(/이슈|문제|버그|막힘|지연|오류|에러/.test(line)) status='issue';
+    else if(/예정|내일|다음 주|해야|할 것/.test(line)) status='plan';
+    else if(/중$|중 |진행|작업 중|작성 중|검토 중/.test(line)) status='doing';
+    return {id:'e'+Date.now()+i,project:project,text:text,time:status==='plan'?'예정':hh,status:status,isNew:true,date:now.toISOString().slice(0,10)};
+  });
+  logEntries=parsed.concat(logEntries.map(function(e){return Object.assign({},e,{isNew:false});}));
+  saveLogEntries();
+  draft.value='';
+  updateLogParseBtn();
+  logFilter='all';
+  renderLogFeed();
+  showToast('✦ '+parsed.length+'개 항목이 추가됐어요');
+}
+
+function renderLogFeed(){
+  var filtersEl=document.getElementById('log-filters');
+  var feedEl=document.getElementById('log-feed');
+  if(!filtersEl||!feedEl) return;
+  var today=new Date().toISOString().slice(0,10);
+  var todayEntries=logEntries.filter(function(e){return !e.date||e.date===today;});
+  var counts={all:todayEntries.length,done:0,doing:0,issue:0,plan:0};
+  todayEntries.forEach(function(e){if(counts[e.status]!==undefined)counts[e.status]++;});
+  var FILTERS=[['all','전체'],['done','완료'],['doing','진행중'],['issue','이슈'],['plan','예정']];
+  filtersEl.innerHTML=FILTERS.map(function(f){
+    var on=logFilter===f[0];
+    var style='height:34px;padding:0 14px;flex-shrink:0;border-radius:999px;border:1px solid '+(on?'var(--point-border)':'var(--line)')+';background:'+(on?'var(--surface)':'transparent')+';color:'+(on?'var(--text)':'var(--muted)')+';font-family:\'Noto Sans KR\',sans-serif;font-size:13px;font-weight:'+(on?700:500)+';cursor:pointer;';
+    return '<button style="'+style+'" onclick="logFilter=\''+f[0]+'\';renderLogFeed()">'+f[1]+' <span style="font-family:\'Space Grotesk\',sans-serif;">'+counts[f[0]]+'</span></button>';
+  }).join('');
+  var filtered=todayEntries.filter(function(e){return logFilter==='all'||e.status===logFilter;});
+  if(!filtered.length){
+    feedEl.innerHTML='<div style="padding:36px 0;text-align:center;font-size:14px;color:var(--muted);">이 상태의 기록이 없어요</div>';
+    return;
+  }
+  feedEl.innerHTML=filtered.map(function(e){
+    var st=LOG_STATUS[e.status]||LOG_STATUS.done;
+    var border=e.isNew?'1.5px solid var(--point-border)':'1.5px solid transparent';
+    return '<article style="background:var(--surface);box-shadow:var(--card-shadow);border:'+border+';border-radius:22px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;">'+
+      '<div style="display:flex;align-items:center;gap:10px;">'+
+        '<span style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;background:'+st.bg+';color:'+st.fg+';border:1px solid '+st.border+';font-size:12px;font-weight:700;flex-shrink:0;"><i class="fa-solid '+st.icon+'" style="font-size:11px;"></i>'+st.label+'</span>'+
+        '<span style="flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escHtml(e.project)+'</span>'+
+        '<span style="font-family:\'Space Grotesk\',sans-serif;font-size:12px;color:var(--muted);">'+escHtml(e.time)+'</span>'+
+      '</div>'+
+      '<p style="margin:0;font-size:14px;line-height:1.6;">'+escHtml(e.text)+'</p>'+
+    '</article>';
+  }).join('');
+}
+
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 /* AI 리포트 */
