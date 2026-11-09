@@ -710,6 +710,53 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
 @keyframes spin{to{transform:rotate(360deg);}}
 @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.4);}}
 
+/* ── LIQUID METAL BUTTON ─────────────────── */
+.btn-ai{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  gap:6px;padding:7px 14px;border-radius:100px;border:none;
+  font-size:13px;font-weight:600;cursor:pointer;overflow:hidden;
+  color:#aaa;text-shadow:0 1px 2px rgba(0,0,0,.5);
+  font-family:inherit;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35),0 9px 9px rgba(0,0,0,.12),0 4px 4px rgba(0,0,0,.15),0 2px 5px rgba(0,0,0,.18);
+  transition:box-shadow .15s,transform .12s,color .15s;
+  background:transparent;
+  -webkit-font-smoothing:antialiased;
+}
+.btn-ai canvas{
+  position:absolute;inset:0;width:100%!important;height:100%!important;
+  display:block;border-radius:100px;pointer-events:none;z-index:0;
+}
+.btn-ai-inner{
+  position:absolute;inset:2px;border-radius:100px;
+  background:linear-gradient(180deg,#202020 0%,#000 100%);
+  pointer-events:none;z-index:1;
+  transition:box-shadow .12s;
+}
+.btn-ai-label{
+  position:relative;z-index:3;display:flex;align-items:center;gap:5px;
+  pointer-events:none;
+}
+.btn-ai-ripple-layer{position:absolute;inset:0;border-radius:100px;overflow:hidden;z-index:2;pointer-events:none;}
+.btn-ai-ripple{
+  position:absolute;width:20px;height:20px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.4) 0%,rgba(255,255,255,0) 70%);
+  transform:translate(-50%,-50%) scale(0);
+  animation:lm-ripple .6s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes lm-ripple{0%{transform:translate(-50%,-50%) scale(0);opacity:.6;}100%{transform:translate(-50%,-50%) scale(5);opacity:0;}}
+.btn-ai:hover{
+  color:#ccc;
+  box-shadow:0 0 0 1px rgba(0,0,0,.4),0 12px 6px rgba(0,0,0,.08),0 8px 5px rgba(0,0,0,.12),0 4px 4px rgba(0,0,0,.18),0 1px 2px rgba(0,0,0,.22);
+}
+.btn-ai:active{
+  transform:scale(.97) translateY(1px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.3);
+}
+.btn-ai:active .btn-ai-inner{box-shadow:inset 0 2px 4px rgba(0,0,0,.4),inset 0 1px 2px rgba(0,0,0,.3);}
+.btn-ai-sm{padding:5px 10px;font-size:11px;}
+.btn-ai-icon{padding:7px;aspect-ratio:1;width:32px;height:32px;}
+
 </style>
 </head>
 <body>
@@ -856,7 +903,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
           <textarea id="ai-quick-input" class="home-ai-area"
             placeholder="텍스트, 문자 내용, 일정 등 붙여넣기 하세요.&#10;예) &quot;내일 오전 10시 팀 미팅, 2시간&quot;"></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;">
-            <button class="btn btn-primary" style="flex:1;" onclick="aiParseText()">
+            <button class="btn-ai" style="flex:1;" onclick="aiParseText()">
               <i class="fa-solid fa-wand-magic-sparkles"></i> AI로 파싱
             </button>
             <label class="btn btn-secondary" style="cursor:pointer;" title="사진으로 일정 인식">
@@ -1106,7 +1153,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <div class="ai-report-box" style="margin-bottom:16px;">
         <div class="section-header" style="margin-bottom:12px;">
           <span class="section-title">🤖 AI 리포트</span>
-          <button class="btn btn-primary btn-sm" onclick="generateReport()"><i class="fa-solid fa-wand-magic-sparkles"></i> 생성</button>
+          <button class="btn-ai btn-ai-sm" onclick="generateReport()"><i class="fa-solid fa-wand-magic-sparkles"></i> 생성</button>
         </div>
         <div class="ai-report-output" id="ai-report-output">리포트 생성 버튼을 눌러 오늘의 AI 피드백을 받아보세요.</div>
       </div>
@@ -1128,7 +1175,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
           </div>
           <div class="ai-chat-input">
             <input class="ai-chat-inp" id="ai-chat-inp" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter')sendChat()"/>
-            <button class="btn btn-primary btn-icon" onclick="sendChat()"><i class="fa-solid fa-paper-plane"></i></button>
+            <button class="btn-ai btn-ai-icon" onclick="sendChat()"><i class="fa-solid fa-paper-plane"></i></button>
           </div>
         </div>
       </div>
@@ -1336,7 +1383,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="number" class="inp" id="goal-est-min" placeholder="분" min="5" max="480" step="5" style="width:90px;"/>
           <span style="font-size:12px;color:var(--muted);" id="goal-est-display"></span>
-          <button class="btn btn-ghost btn-sm" onclick="aiEstimateTime()" title="AI 시간 추정">
+          <button class="btn-ai btn-ai-icon btn-ai-sm" onclick="aiEstimateTime()" title="AI 시간 추정">
             <i class="fa-solid fa-wand-magic-sparkles"></i>
           </button>
         </div>
@@ -1346,7 +1393,7 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
         <div id="goal-survival-badge" style="display:none;margin-bottom:8px;"></div>
         <div class="divider"><hr/><span>하위 항목</span><hr/></div>
         <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="aiBreakdownGoal()">
+          <button class="btn-ai btn-ai-sm" style="flex:1;" onclick="aiBreakdownGoal()">
             <i class="fa-solid fa-wand-magic-sparkles"></i> AI로 쪼개기
           </button>
           <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openPastGoalImport()">
@@ -6059,6 +6106,7 @@ async function syncToSupabase(showMsg){
 async function init(){
   applyTheme();
   switchView('timeline');
+  if(window.initLiquidMetalButtons) setTimeout(window.initLiquidMetalButtons,200);
   // Supabase 세션 체크 (OAuth 콜백 포함)
   supa.auth.onAuthStateChange(function(event, session){
     if(session) onSupaLogin(session);
@@ -6111,5 +6159,119 @@ init();
   fab.onclick=toggleJarvis;
   fab.style.cssText='position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));right:16px;z-index:9999;width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#374151,#1f2937);box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:background .3s,box-shadow .3s;';
   document.body.appendChild(fab);
+})();
+
+/* ── LIQUID METAL BUTTON ENGINE ─────────────────── */
+(function(){
+  var VS=`attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0,1);}`;
+  var FS=`precision mediump float;
+uniform float u_time;uniform vec2 u_res;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float sn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
+float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*sn(p);p*=2.;a*=.5;}return v;}
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  float t=u_time*.25;
+  vec2 p=uv*5.;
+  float n=fbm(p+vec2(t*.4,t*.2));
+  float n2=fbm(p*1.3-vec2(t*.3,t*.35)+1.7);
+  float m=n*.55+n2*.45;
+  vec3 dark=vec3(.06,.06,.08);
+  vec3 mid=vec3(.28,.28,.32);
+  vec3 bright=vec3(.62,.62,.68);
+  vec3 col=mix(dark,mix(mid,bright,smoothstep(.42,.72,m)),smoothstep(.18,.82,m));
+  gl_FragColor=vec4(col,1.);
+}`;
+  function LiquidMetal(canvas){
+    var gl=canvas.getContext('webgl',{antialias:true,alpha:false});
+    if(!gl) return null;
+    function sh(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
+    var prog=gl.createProgram();
+    gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));
+    gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));
+    gl.linkProgram(prog);gl.useProgram(prog);
+    var buf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+    var aPos=gl.getAttribLocation(prog,'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos,2,gl.FLOAT,false,0,0);
+    var uTime=gl.getUniformLocation(prog,'u_time');
+    var uRes=gl.getUniformLocation(prog,'u_res');
+    var raf=null,speed=0.6,t=0,last=null,running=true;
+    function tick(now){
+      if(!running) return;
+      raf=requestAnimationFrame(tick);
+      var dt=last?Math.min((now-last)/1000,.05):0;
+      last=now;t+=dt*speed;
+      gl.viewport(0,0,canvas.width,canvas.height);
+      gl.uniform1f(uTime,t);
+      gl.uniform2f(uRes,canvas.width,canvas.height);
+      gl.drawArrays(gl.TRIANGLES,0,6);
+    }
+    raf=requestAnimationFrame(tick);
+    return {
+      setSpeed:function(s){speed=s;},
+      destroy:function(){running=false;if(raf)cancelAnimationFrame(raf);gl.getExtension('WEBGL_lose_context')&&gl.getExtension('WEBGL_lose_context').loseContext();}
+    };
+  }
+
+  function initBtn(btn){
+    if(btn._lmInit) return;
+    btn._lmInit=true;
+    var canvas=document.createElement('canvas');
+    var inner=document.createElement('div');inner.className='btn-ai-inner';
+    var rippleLayer=document.createElement('div');rippleLayer.className='btn-ai-ripple-layer';
+    var labelEl=btn.querySelector('.btn-ai-label');
+    if(!labelEl){
+      labelEl=document.createElement('span');labelEl.className='btn-ai-label';
+      while(btn.firstChild) labelEl.appendChild(btn.firstChild);
+      btn.appendChild(labelEl);
+    }
+    btn.insertBefore(canvas,btn.firstChild);
+    btn.insertBefore(inner,labelEl);
+    btn.insertBefore(rippleLayer,labelEl);
+    function resize(){
+      var r=btn.getBoundingClientRect();
+      var w=Math.round(r.width*devicePixelRatio);
+      var h=Math.round(r.height*devicePixelRatio);
+      if(w>0&&h>0){canvas.width=w;canvas.height=h;}
+      else{canvas.width=120;canvas.height=34;}
+    }
+    resize();
+    if(typeof ResizeObserver!=='undefined'){
+      new ResizeObserver(function(){resize();}).observe(btn);
+    }
+    var lm=LiquidMetal(canvas);
+    if(!lm) return;
+    btn.addEventListener('mouseenter',function(){lm.setSpeed(1.4);});
+    btn.addEventListener('mouseleave',function(){lm.setSpeed(0.6);});
+    btn.addEventListener('click',function(e){
+      lm.setSpeed(2.8);
+      setTimeout(function(){lm.setSpeed(0.6);},350);
+      var r=btn.getBoundingClientRect();
+      var rip=document.createElement('span');rip.className='btn-ai-ripple';
+      rip.style.left=(e.clientX-r.left)+'px';rip.style.top=(e.clientY-r.top)+'px';
+      rippleLayer.appendChild(rip);
+      setTimeout(function(){rip.remove();},650);
+    });
+    btn._lmDestroy=function(){lm.destroy();};
+  }
+
+  window.initLiquidMetalButtons=function(){
+    document.querySelectorAll('.btn-ai').forEach(initBtn);
+  };
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(window.initLiquidMetalButtons,100);
+  });
+
+  var origSwitchView=window.switchView;
+  if(origSwitchView){
+    window.switchView=function(name){
+      origSwitchView(name);
+      setTimeout(window.initLiquidMetalButtons,50);
+    };
+  }
 })();
 </script>
