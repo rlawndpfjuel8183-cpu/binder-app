@@ -5947,6 +5947,7 @@ function hideVoiceOverlay(){
   if(_voiceAnimFrame){ cancelAnimationFrame(_voiceAnimFrame); _voiceAnimFrame=null; }
   if(_voiceAudioStream){ _voiceAudioStream.getTracks().forEach(function(t){t.stop();}); _voiceAudioStream=null; }
   if(_voiceAudioCtx){ _voiceAudioCtx.close(); _voiceAudioCtx=null; _voiceAnalyser=null; }
+  _closeJarvisChoice();
 }
 
 /* ═══════════════════════════════════════
