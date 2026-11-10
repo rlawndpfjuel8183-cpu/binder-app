@@ -1560,11 +1560,29 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </div>
       <div>
         <label class="lbl">단축키</label>
-        <input type="text" class="inp" id="set-shortcut" placeholder="ctrl+space"
-          style="cursor:text;"
-          oninput="document.getElementById('set-shortcut-hidden').value=this.value.trim();"/>
+        <input type="text" class="inp" id="set-shortcut" placeholder="클릭 후 키 조합을 누르세요"
+          readonly style="cursor:pointer;caret-color:transparent;"
+          onfocus="this.value='';this.placeholder='누르세요…';this.style.outline='2px solid var(--indigo)';"
+          onblur="if(!this.value){this.value=document.getElementById('set-shortcut-hidden').dataset.orig||'';} this.placeholder='클릭 후 키 조합을 누르세요';this.style.outline='';"
+          onkeydown="
+            var e=arguments[0]||window.event;
+            e.preventDefault();
+            var parts=[];
+            if(e.ctrlKey||e.metaKey) parts.push('ctrl');
+            if(e.altKey) parts.push('alt');
+            if(e.shiftKey) parts.push('shift');
+            var k=e.key;
+            if(k==='Control'||k==='Meta'||k==='Alt'||k==='Shift') return;
+            if(k===' ') k='space';
+            else if(k.length===1) k=k.toLowerCase();
+            parts.push(k);
+            var combo=parts.join('+');
+            this.value=combo;
+            document.getElementById('set-shortcut-hidden').value=combo;
+            this.blur();
+          "/>
         <input type="hidden" id="set-shortcut-hidden"/>
-        <p style="font-size:11px;color:var(--muted);margin-top:5px;">직접 입력하세요 (예: ctrl+space, ctrl+shift+j). 데스크톱 전용.</p>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">클릭 후 원하는 키 조합을 누르면 자동 입력돼요. 데스크톱 전용.</p>
       </div>
       <div class="divider"><hr/><span>데이터 동기화</span><hr/></div>
       <div id="sync-status-area" style="margin-bottom:8px;font-size:12px;color:var(--muted);"></div>
@@ -3903,8 +3921,10 @@ function openSettings(){
   document.getElementById('set-sleep').value=s.sleep_time||'23:30';
   document.getElementById('set-apikey').value=s.api_key||'';
   document.getElementById('set-wakeword').value=s.wake_word||'자비스';
-  document.getElementById('set-shortcut').value=s.jarvis_shortcut||'ctrl+space';
+  var scVal=s.jarvis_shortcut||'ctrl+space';
+  document.getElementById('set-shortcut').value=scVal;
   document.getElementById('set-shortcut-hidden').value='';
+  document.getElementById('set-shortcut-hidden').dataset.orig=scVal;
   document.getElementById('set-gcal-id').value=s.gcal_client_id||'';
   var connected=!!localStorage.getItem('gcal_token');
   document.getElementById('gcal-status').textContent=connected?'✅ Google 캘린더 연결됨':'연결되지 않음';
