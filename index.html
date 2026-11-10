@@ -1709,6 +1709,12 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       <div id="goal-add-child-row" style="display:none;">
         <div id="goal-survival-badge" style="display:none;margin-bottom:8px;"></div>
         <div class="divider"><hr/><span>하위 항목</span><hr/></div>
+        <div style="margin-bottom:8px;">
+          <label class="lbl" style="margin-bottom:4px;">참고 골 연결 (선택)</label>
+          <select class="inp" id="goal-ref-select" style="font-size:12px;">
+            <option value="">— 참고 없음</option>
+          </select>
+        </div>
         <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
           <button class="btn-ai btn-ai-sm" style="flex:1;" onclick="aiBreakdownGoal()">
             <i class="fa-solid fa-wand-magic-sparkles"></i> AI로 쪼개기
@@ -3955,6 +3961,7 @@ function openGoalAdd(parentId, type){
   setGoalStatus('active'); setGoalPriority(2);
   buildColorPicker('goal-color-picker', _editGoalColor);
   updateGoalTypeUI();
+  _populateRefSelect(null);
   openDrawer();
   setTimeout(function(){ document.getElementById('goal-edit-title').focus(); },300);
 }
@@ -3993,7 +4000,19 @@ function openGoalEdit(id, isTop){
   // 완료 버튼: active 상태 골에만 표시
   var completeRow = document.getElementById('goal-complete-row');
   if(completeRow) completeRow.style.display = (g.status === 'active') ? '' : 'none';
+  _populateRefSelect(id);
   openDrawer();
+}
+
+function _populateRefSelect(excludeId){
+  var sel=document.getElementById('goal-ref-select');
+  if(!sel) return;
+  var goals=getGoals().filter(function(g){ return g.id!==excludeId && g.type!=='category'; });
+  sel.innerHTML='<option value="">— 참고 없음</option>'
+    +goals.map(function(g){
+      var prefix=g.parent_id?'  ↳ ':'';
+      return '<option value="'+g.id+'">'+prefix+escHtml(g.title)+'</option>';
+    }).join('');
 }
 
 function markGoalDone(){
@@ -4280,9 +4299,14 @@ async function aiBreakdownGoal(){
       +'- 소요시간은 현실적으로 (집중 작업 기준)\n'
       +'- 5~8개 작업 생성\n'
       +'- 이미 존재하는 하위 항목과 중복 없게';
+    var refId=document.getElementById('goal-ref-select')&&document.getElementById('goal-ref-select').value;
+    var refGoal=refId?getGoals().find(function(g){ return g.id===refId; }):null;
+    var refChildren=refId?getGoals().filter(function(g){ return g.parent_id===refId; }):[];
     var usr='골: "'+title+'"'
       +(deadline?'\n마감일: '+deadline:'')
-      +(existingChildren.length?'\n기존 하위 항목: '+existingChildren.map(function(c){ return c.title; }).join(', '):'');
+      +(existingChildren.length?'\n기존 하위 항목: '+existingChildren.map(function(c){ return c.title; }).join(', '):'')
+      +(refGoal?'\n\n참고 프로젝트: "'+refGoal.title+'"'+(refChildren.length?'\n참고 프로젝트의 하위 항목: '+refChildren.map(function(c){ return c.title; }).join(', '):''):'')
+      +(refGoal?'\n위 참고 프로젝트 구조를 참고해서 비슷한 패턴으로 세부 작업을 추천해주세요.':'');
     var raw=await callGemini(sys, usr);
     var text=(raw||'').trim().replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
     var tasks=JSON.parse(text);
@@ -6042,10 +6066,7 @@ async function _jarvisProcess(cmd){
         _jarvisAskDuration(j.title, j.date, j.start||'09:00');
       }
     } else if(j.action==='add_goal'){
-      upsertGoal({id:'g'+Date.now(),title:j.title,type:'task',status:'backlog',priority:2,color:'#5B52E8',progress:0,created:Date.now()});
-      var reply2='"'+j.title+'" 골을 추가했습니다';
-      showVoiceOverlay('done', reply2); _jarvisSay(reply2); renderHome();
-      setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },6000);
+      _jarvisStartGoalFlow(j.title);
     } else {
       var reply3=j.text||res;
       showVoiceOverlay('done', reply3); _jarvisSay(reply3);
@@ -6177,6 +6198,124 @@ function _jarvisAddPlan(title, date, start, end){
   var reply='"'+title+'" '+startFmt+'~'+endFmt+' 일정을 추가했습니다';
   showVoiceOverlay('done', reply); _jarvisSay(reply); renderHome();
   setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },6000);
+}
+
+/* ── 자비스 대화형 골 생성 ── */
+var _jarvisGoalDraft={};
+
+function _jarvisStartGoalFlow(title){
+  _jarvisGoalDraft={title:title};
+  var topGoals=getGoals().filter(function(g){ return !g.parent_id; });
+  var msg='"'+title+'" 골을 추가할게요.\n어느 대분류에 넣을까요?';
+  _jarvisSay(msg);
+  _showJarvisChoice(msg,
+    topGoals.map(function(g){ return {label:g.title, value:g.id, color:g.color}; }).concat([{label:'독립 골로 추가', value:'__none__', color:'#888'}]),
+    function(val){
+      _jarvisGoalDraft.parentId = val==='__none__' ? null : val;
+      var parentTitle = val==='__none__' ? null : topGoals.find(function(g){return g.id===val;}).title;
+      _jarvisAskGoalType(parentTitle);
+    }
+  );
+}
+
+function _jarvisAskGoalType(parentTitle){
+  var msg=(parentTitle?'"'+parentTitle+'" 안에 넣을게요. ':'')+'어떤 종류의 골인가요?';
+  _jarvisSay(msg);
+  _showJarvisChoice(msg,[
+    {label:'📁 프로젝트', value:'project'},
+    {label:'⚡ 단기 작업', value:'short_job'},
+    {label:'🔄 정기 반복', value:'recurring_job'},
+    {label:'· 소분류', value:'sub'},
+  ], function(val){
+    _jarvisGoalDraft.type=val;
+    _jarvisAskDeadline();
+  });
+}
+
+function _jarvisAskDeadline(){
+  var msg='"'+_jarvisGoalDraft.title+'" 마감일이 있나요?';
+  _jarvisSay(msg);
+  _showJarvisChoice(msg,[
+    {label:'없음', value:'none'},
+    {label:'이번 주', value:'this_week'},
+    {label:'이번 달', value:'this_month'},
+    {label:'직접 입력', value:'custom'},
+  ], function(val){
+    if(val==='none'){ _jarvisCreateGoal(null); return; }
+    if(val==='custom'){
+      var d=prompt('마감일을 입력하세요 (YYYY-MM-DD)');
+      _jarvisCreateGoal(d||null); return;
+    }
+    var now=new Date();
+    if(val==='this_week'){
+      var day=now.getDay(); var diff=7-day;
+      var dl=new Date(now); dl.setDate(now.getDate()+diff);
+      _jarvisCreateGoal(dl.toISOString().slice(0,10));
+    } else {
+      var dl2=new Date(now.getFullYear(),now.getMonth()+1,0);
+      _jarvisCreateGoal(dl2.toISOString().slice(0,10));
+    }
+  });
+}
+
+function _jarvisCreateGoal(deadline){
+  var COLORS2=['#5B52E8','#E85B52','#52E8A5','#E8A552','#52A5E8','#A552E8'];
+  var parentGoal=_jarvisGoalDraft.parentId?getGoals().find(function(g){return g.id===_jarvisGoalDraft.parentId;}):null;
+  var color=parentGoal?parentGoal.color:COLORS2[Math.floor(Math.random()*COLORS2.length)];
+  var g={
+    id:genId(),
+    title:_jarvisGoalDraft.title,
+    type:_jarvisGoalDraft.type||'project',
+    status:'active',
+    parent_id:_jarvisGoalDraft.parentId||null,
+    color:color,
+    deadline:deadline||null,
+    created_at:new Date().toISOString()
+  };
+  upsertGoal(g);
+  var where=parentGoal?' ('+parentGoal.title+' 하위)':'';
+  var dl=deadline?' · 마감 '+deadline:'';
+  var reply='"'+g.title+'" 골 추가 완료'+where+dl;
+  _jarvisSay(reply);
+  _showJarvisChoice(reply,[
+    {label:'세부 골 설정하기', value:'edit'},
+    {label:'완료', value:'done'},
+  ], function(val){
+    _closeJarvisChoice();
+    hideVoiceOverlay();
+    _jarvisRunning=false; _updateJarvisFab(false);
+    if(val==='edit') openGoalEdit(g.id, !g.parent_id);
+    renderGoals();
+  });
+}
+
+function _showJarvisChoice(msg, options, onSelect){
+  _closeJarvisChoice();
+  var box=document.createElement('div');
+  box.id='jarvis-choice';
+  box.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:100001;background:rgba(15,10,30,0.92);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.1);padding:20px 16px 32px;';
+  var label=document.createElement('div');
+  label.style.cssText='color:#fff;font-size:15px;font-weight:600;text-align:center;margin-bottom:16px;line-height:1.5;white-space:pre-line;text-shadow:0 0 16px rgba(180,130,255,.6);';
+  label.textContent=msg;
+  box.appendChild(label);
+  var grid=document.createElement('div');
+  grid.style.cssText='display:flex;flex-wrap:wrap;gap:8px;justify-content:center;';
+  options.forEach(function(opt){
+    var btn=document.createElement('button');
+    btn.textContent=opt.label;
+    btn.style.cssText='padding:10px 18px;border-radius:99px;border:1.5px solid '+(opt.color||'rgba(255,255,255,.25)')+';background:rgba(255,255,255,.07);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;';
+    btn.onmouseover=function(){this.style.background='rgba(120,80,255,.3)';};
+    btn.onmouseout=function(){this.style.background='rgba(255,255,255,.07)';};
+    btn.onclick=function(){ onSelect(opt.value); };
+    grid.appendChild(btn);
+  });
+  box.appendChild(grid);
+  document.body.appendChild(box);
+}
+
+function _closeJarvisChoice(){
+  var ex=document.getElementById('jarvis-choice');
+  if(ex) ex.remove();
 }
 
 function _jarvisSay(text){
