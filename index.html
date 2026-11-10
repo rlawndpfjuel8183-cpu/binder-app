@@ -1559,21 +1559,11 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
       </div>
       <div>
         <label class="lbl">단축키</label>
-        <input type="text" class="inp" id="set-shortcut" placeholder="ctrl+space" id="set-shortcut" readonly
-          style="cursor:pointer;caret-color:transparent;"
-          onfocus="this.value='단축키를 눌러주세요...'; this._recording=true;"
-          onblur="if(this._recording){this.value=getJarvisShortcut();this._recording=false;}"
-          onkeydown="if(this._recording){
-            var k=[];
-            if(event.ctrlKey||event.metaKey)k.push('ctrl');
-            if(event.altKey)k.push('alt');
-            if(event.shiftKey)k.push('shift');
-            var main=event.code==='Space'?'space':event.key.toLowerCase();
-            if(!['control','alt','shift','meta'].includes(main)){k.push(main);this.value=k.join('+');document.getElementById('set-shortcut-hidden').value=k.join('+');this.blur();}
-            event.preventDefault();
-          }"/>
+        <input type="text" class="inp" id="set-shortcut" placeholder="ctrl+space"
+          style="cursor:text;"
+          oninput="document.getElementById('set-shortcut-hidden').value=this.value.trim();"/>
         <input type="hidden" id="set-shortcut-hidden"/>
-        <p style="font-size:11px;color:var(--muted);margin-top:5px;">클릭 후 원하는 키 조합을 누르세요 (기본: Ctrl+Space)</p>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">직접 입력하세요 (예: ctrl+space, ctrl+shift+j). 데스크톱 전용.</p>
       </div>
       <div class="divider"><hr/><span>데이터 동기화</span><hr/></div>
       <div id="sync-status-area" style="margin-bottom:8px;font-size:12px;color:var(--muted);"></div>
