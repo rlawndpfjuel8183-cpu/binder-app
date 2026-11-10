@@ -6515,8 +6515,22 @@ function _jarvisAskGoalType(parentTitle){
     {label:'· 소분류', value:'sub'},
   ], function(val){
     _jarvisGoalDraft.type=val;
-    if(val==='recurring_job'){ _jarvisCreateGoal(null); return; }
+    if(val==='recurring_job'){ _jarvisAskRecurFreq(); return; }
     _jarvisAskDeadline();
+  });
+}
+
+function _jarvisAskRecurFreq(){
+  var msg='"'+_jarvisGoalDraft.title+'" 반복 주기가 어떻게 되나요?';
+  _jarvisSay(msg);
+  _showJarvisChoice(msg,[
+    {label:'매일', value:'daily'},
+    {label:'주 3회', value:'3x_week'},
+    {label:'매주', value:'weekly'},
+    {label:'격주', value:'biweekly'},
+  ], function(val){
+    _jarvisGoalDraft.recur=val;
+    _jarvisCreateGoal(null);
   });
 }
 
@@ -6558,12 +6572,15 @@ function _jarvisCreateGoal(deadline){
     parent_id:_jarvisGoalDraft.parentId||null,
     color:color,
     deadline:deadline||null,
+    recur:_jarvisGoalDraft.recur||null,
     created_at:new Date().toISOString()
   };
   upsertGoal(g);
   var where=parentGoal?' ('+parentGoal.title+' 하위)':'';
   var dl=deadline?' · 마감 '+deadline:'';
-  var reply='"'+g.title+'" 골 추가 완료'+where+dl;
+  var recurLabels={daily:'매일',weekly:'매주',biweekly:'격주','3x_week':'주 3회'};
+  var rc=_jarvisGoalDraft.recur?(' · '+recurLabels[_jarvisGoalDraft.recur]):'';
+  var reply='"'+g.title+'" 골 추가 완료'+where+dl+rc;
   _jarvisSay(reply);
   _showJarvisChoice(reply,[
     {label:'세부 골 설정하기', value:'edit'},
