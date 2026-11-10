@@ -6048,10 +6048,17 @@ async function _jarvisProcess(cmd){
     _jarvisSay('API 키가 설정되지 않았습니다'); return;
   }
   var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  // 브리핑 키워드 감지 — Gemini 없이 바로 처리
+  if(/브리핑|브리핑해|오늘.*골|골.*브리핑|오늘.*요약|요약.*해줘|today.*brief/i.test(cmd)){
+    hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false);
+    _jarvisBriefing();
+    return;
+  }
   var sys='당신은 바인더 앱의 AI 어시스턴트 자비스입니다. 한국어로 짧고 명확하게 답변하세요. 오늘은 '+today+'입니다. '
     +'사용자가 일정 추가를 요청하면: {"action":"add_plan","title":"...","date":"YYYY-MM-DD","start":"HH:MM","duration_known":false} '
     +'단, 사용자가 소요시간을 명시한 경우(예: "1시간짜리", "30분") duration_known:true로 하고 "end":"HH:MM"도 포함하세요. '
     +'골 추가: {"action":"add_goal","title":"..."}. '
+    +'브리핑 요청("브리핑","오늘 요약" 등): {"action":"briefing"}. '
     +'그 외: {"action":"reply","text":"..."}. JSON만 출력하세요.';
   var res=await callGemini(sys, cmd);
   if(!res){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); return; }
@@ -6070,6 +6077,9 @@ async function _jarvisProcess(cmd){
         /* 소요시간 모를 때 → 선택 UI 표시 */
         _jarvisAskDuration(j.title, j.date, j.start||'09:00');
       }
+    } else if(j.action==='briefing'){
+      hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false);
+      _jarvisBriefing();
     } else if(j.action==='add_goal'){
       _jarvisStartGoalFlow(j.title);
     } else {
@@ -6203,6 +6213,64 @@ function _jarvisAddPlan(title, date, start, end){
   var reply='"'+title+'" '+startFmt+'~'+endFmt+' 일정을 추가했습니다';
   showVoiceOverlay('done', reply); _jarvisSay(reply); renderHome();
   setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },6000);
+}
+
+/* ── 자비스 브리핑 ── */
+async function _jarvisBriefing(){
+  var goals=getGoals().filter(function(g){ return g.status==='active' && !g.parent_id; });
+  var plans=getPlans(TODAY);
+  var donePlans=plans.filter(function(p){ return p.done; });
+  var totalMin=plans.reduce(function(a,p){
+    if(!p.start_time||!p.end_time) return a;
+    return a+(timeToMin(p.end_time)-timeToMin(p.start_time));
+  },0);
+
+  // Gemini로 자연스러운 브리핑 생성
+  var key=getApiKey();
+  var goalList=goals.map(function(g){
+    var kids=getGoals().filter(function(c){ return c.parent_id===g.id; });
+    return g.title+(kids.length?' (하위 '+kids.length+'개)':'');
+  }).join(', ');
+  var planList=plans.map(function(p){ return p.title+(p.done?' ✅':''); }).join(', ');
+
+  var briefText;
+  if(key){
+    var sys='당신은 바인더 앱 자비스입니다. 아래 데이터를 바탕으로 오늘 브리핑을 2~4문장으로 말해주세요. 친근하고 동기부여가 되는 톤으로, 한국어로.';
+    var usr='오늘 날짜: '+TODAY+'\n활성 골: '+goalList+'\n오늘 일정: '+planList+'\n완료: '+donePlans.length+'/'+plans.length+'개';
+    briefText=await callGemini(sys, usr);
+  }
+  if(!briefText){
+    briefText='오늘 활성 골은 '+goals.length+'개입니다. '
+      +(plans.length?'일정 '+plans.length+'개 중 '+donePlans.length+'개 완료했어요. ':'오늘 일정이 없어요. ')
+      +(goals.length?'주요 골: '+goals.slice(0,3).map(function(g){return g.title;}).join(', ')+'입니다.':'');
+  }
+
+  // 브리핑 모달 표시
+  var box=document.createElement('div');
+  box.id='jarvis-briefing';
+  box.style.cssText='position:fixed;inset:0;z-index:100002;display:flex;align-items:flex-end;justify-content:center;';
+  box.innerHTML='<div style="width:100%;max-width:480px;background:var(--surface);border-radius:24px 24px 0 0;padding:24px 20px 36px;box-shadow:0 -4px 40px rgba(0,0,0,.18);">'
+    +'<div style="width:40px;height:4px;background:var(--line);border-radius:99px;margin:0 auto 20px;"></div>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">'
+      +'<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:16px;">🤖</div>'
+      +'<div style="font-size:13px;font-weight:700;color:var(--point);">자비스 브리핑</div>'
+    +'</div>'
+    +'<div style="font-size:15px;line-height:1.7;color:var(--text);margin-bottom:20px;">'+escHtml(briefText)+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">'
+      +'<div style="background:var(--s2);border-radius:14px;padding:12px;text-align:center;">'
+        +'<div style="font-size:24px;font-weight:700;color:var(--point);">'+goals.length+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);">활성 골</div>'
+      +'</div>'
+      +'<div style="background:var(--s2);border-radius:14px;padding:12px;text-align:center;">'
+        +'<div style="font-size:24px;font-weight:700;color:var(--green,#22c55e);">'+donePlans.length+'/'+plans.length+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);">오늘 일정 완료</div>'
+      +'</div>'
+    +'</div>'
+    +'<button onclick="document.getElementById(\'jarvis-briefing\').remove()" style="width:100%;padding:14px;border-radius:14px;border:none;background:var(--point);color:#fff;font-size:15px;font-weight:700;cursor:pointer;">확인</button>'
+  +'</div>';
+  box.addEventListener('click', function(e){ if(e.target===box) box.remove(); });
+  document.body.appendChild(box);
+  if(briefText) _jarvisSay(briefText);
 }
 
 /* ── 자비스 대화형 골 생성 ── */
