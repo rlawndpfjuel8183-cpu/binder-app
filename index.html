@@ -7299,7 +7299,11 @@ async function onSupaLogin(session){
     if(data.tracks && data.tracks.length) localStorage.setItem('b2_tracks', JSON.stringify(data.tracks));
     if(data.fixed && data.fixed.length) localStorage.setItem('b2_fixed', JSON.stringify(data.fixed));
     if(data.presets && data.presets.length) localStorage.setItem('b2_fixed_presets', JSON.stringify(data.presets));
-    if(data.settings && Object.keys(data.settings).length) localStorage.setItem('b2_settings', JSON.stringify(data.settings));
+    if(data.settings && Object.keys(data.settings).length){
+      var localS=getSettings();
+      var merged=Object.assign({},data.settings,{api_key:localS.api_key||data.settings.api_key});
+      localStorage.setItem('b2_settings', JSON.stringify(merged));
+    }
     renderHome(); if(typeof renderGoals==='function') renderGoals();
     updateLastSynced();
     showToast('☁️ 클라우드 데이터 불러왔습니다');
