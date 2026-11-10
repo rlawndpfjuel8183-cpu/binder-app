@@ -5911,6 +5911,21 @@ function _voiceStartCanvas(){
 function showVoiceOverlay(state, text){
   /* 커맨드바가 열려있으면 결과를 그 안에 표시 */
   var cmdbar=document.getElementById('jarvis-cmdbar');
+  /* 음성 하단 바 결과 처리 */
+  var vbar=document.getElementById('jarvis-voicebar');
+  if(vbar && state==='done' && text){
+    var rEl=document.getElementById('jvb-result');
+    var hEl=document.getElementById('jvb-hint');
+    if(rEl){ rEl.textContent=text; }
+    if(hEl) hEl.textContent='완료';
+    if(window._jvbPendingClose){
+      var vfn=window._jvbPendingClose;
+      window._jvbPendingClose=null;
+      var vdelay=Math.max(2200, Math.min(text.length*60, 6000));
+      setTimeout(function(){ vfn(); }, vdelay);
+    }
+    return;
+  }
   if(cmdbar && state==='done' && text){
     var resultEl=document.getElementById('jarvis-cmdbar-result');
     if(resultEl){ resultEl.textContent=text; resultEl.style.display='block'; }
@@ -6161,6 +6176,125 @@ function toggleJarvis(){
   var bar=document.getElementById('jarvis-cmdbar');
   if(bar){ bar.remove(); }
   else { invokeJarvis(); }
+}
+
+/* ── Google 스타일 하단 음성 바 ── */
+function invokeJarvisVoice(){
+  if(_jarvisRunning) return;
+  if(document.getElementById('jarvis-voicebar')){ _jarvisVoiceBarClose(); return; }
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return;
+  }
+  if(navigator.vibrate) navigator.vibrate([20,10,20]);
+
+  var el=document.createElement('div');
+  el.id='jarvis-voicebar';
+
+  var st=document.createElement('style');
+  st.id='jarvis-voicebar-style';
+  st.textContent=
+    '#jarvis-voicebar{'
+    +'position:fixed;bottom:0;left:0;right:0;z-index:99998;'
+    +'background:var(--bg,#fff);'
+    +'border-radius:28px 28px 0 0;'
+    +'box-shadow:0 -4px 32px rgba(0,0,0,0.18);'
+    +'padding:20px 24px calc(28px + env(safe-area-inset-bottom));'
+    +'display:flex;flex-direction:column;align-items:center;gap:14px;'
+    +'animation:jvb-in .22s cubic-bezier(.22,1,.36,1);'
+    +'}'
+    +'@keyframes jvb-in{from{transform:translateY(100%)}to{transform:translateY(0)}}'
+    +'#jarvis-voicebar .jvb-hint{'
+    +'font-size:13px;color:var(--muted,#888);min-height:22px;text-align:center;'
+    +'}'
+    +'#jarvis-voicebar .jvb-transcript{'
+    +'font-size:18px;font-weight:500;color:var(--text,#111);min-height:28px;text-align:center;'
+    +'max-width:340px;line-height:1.4;'
+    +'}'
+    +'#jarvis-voicebar .jvb-mics{'
+    +'display:flex;align-items:center;justify-content:center;gap:5px;height:52px;'
+    +'}'
+    +'#jarvis-voicebar .jvb-bar{'
+    +'width:5px;border-radius:4px;background:var(--indigo,#5B52E8);'
+    +'transform-origin:center bottom;'
+    +'}'
+    +'#jarvis-voicebar .jvb-bar.listening{'
+    +'animation:jvb-wave 0.9s ease-in-out infinite;'
+    +'}'
+    +'#jarvis-voicebar .jvb-bar:nth-child(1){height:14px;animation-delay:0s;}'
+    +'#jarvis-voicebar .jvb-bar:nth-child(2){height:28px;animation-delay:.1s;}'
+    +'#jarvis-voicebar .jvb-bar:nth-child(3){height:40px;animation-delay:.05s;}'
+    +'#jarvis-voicebar .jvb-bar:nth-child(4){height:28px;animation-delay:.15s;}'
+    +'#jarvis-voicebar .jvb-bar:nth-child(5){height:14px;animation-delay:.2s;}'
+    +'@keyframes jvb-wave{'
+    +'0%,100%{transform:scaleY(0.4);opacity:.5}'
+    +'50%{transform:scaleY(1);opacity:1}'
+    +'}'
+    +'#jarvis-voicebar .jvb-cancel{'
+    +'background:none;border:1.5px solid var(--border,#ddd);border-radius:99px;'
+    +'padding:8px 28px;font-size:14px;color:var(--muted,#888);cursor:pointer;'
+    +'}'
+    +'#jarvis-voicebar .jvb-result{'
+    +'font-size:14px;color:var(--muted,#888);text-align:center;min-height:0;max-width:340px;'
+    +'}';
+  document.head.appendChild(st);
+
+  el.innerHTML=
+    '<div class="jvb-hint" id="jvb-hint">말씀하세요</div>'
+    +'<div class="jvb-transcript" id="jvb-transcript"></div>'
+    +'<div class="jvb-mics">'
+    +'  <div class="jvb-bar listening"></div>'
+    +'  <div class="jvb-bar listening"></div>'
+    +'  <div class="jvb-bar listening"></div>'
+    +'  <div class="jvb-bar listening"></div>'
+    +'  <div class="jvb-bar listening"></div>'
+    +'</div>'
+    +'<div class="jvb-result" id="jvb-result"></div>'
+    +'<button class="jvb-cancel" onclick="_jarvisVoiceBarClose()">취소</button>';
+
+  document.body.appendChild(el);
+  _jarvisRunning=true; _updateJarvisFab(true);
+
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var rec=new SR();
+  rec.lang='ko-KR'; rec.interimResults=true; rec.maxAlternatives=1;
+  window._jvbRec=rec;
+
+  rec.onresult=function(e){
+    var t=e.results[0][0].transcript;
+    var interim=!e.results[0].isFinal;
+    var trEl=document.getElementById('jvb-transcript');
+    if(trEl){ trEl.textContent=t; trEl.style.opacity=interim?'0.6':'1'; }
+  };
+  rec.onend=function(){
+    var trEl=document.getElementById('jvb-transcript');
+    var cmd=trEl?trEl.textContent.trim():'';
+    /* 파형 애니 정지 */
+    var bars=document.querySelectorAll('#jarvis-voicebar .jvb-bar');
+    bars.forEach(function(b){ b.classList.remove('listening'); b.style.transform='scaleY(0.3)'; b.style.opacity='0.3'; });
+    var hintEl=document.getElementById('jvb-hint');
+    if(hintEl) hintEl.textContent='처리 중…';
+    if(cmd){
+      _jarvisProcess(cmd);
+      window._jvbPendingClose=_jarvisVoiceBarClose;
+    } else {
+      _jarvisVoiceBarClose();
+    }
+    window._jvbRec=null;
+  };
+  rec.onerror=function(e){
+    if(e.error!=='aborted') showToast('음성 오류: '+e.error);
+    _jarvisVoiceBarClose();
+  };
+  try{ rec.start(); }catch(e){ _jarvisVoiceBarClose(); }
+}
+
+function _jarvisVoiceBarClose(){
+  if(window._jvbRec){ try{_jvbRec.stop();}catch(e){} window._jvbRec=null; }
+  var el=document.getElementById('jarvis-voicebar');
+  if(el){ el.style.transition='transform .2s'; el.style.transform='translateY(100%)'; setTimeout(function(){ el.remove(); },200); }
+  var st=document.getElementById('jarvis-voicebar-style');
+  if(st) st.remove();
+  _jarvisRunning=false; _updateJarvisFab(false);
 }
 
 /* ── 대화 모드 ───────────────────────────────── */
@@ -7761,7 +7895,7 @@ init();
   fab.title='자비스 시작';
   fab.innerHTML='<span class="jf-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;"></span>'
     +'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" opacity=".4"/></svg>';
-  fab.onclick=toggleJarvis;
+  fab.onclick=invokeJarvisVoice;
   fab.style.cssText='position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));right:16px;z-index:9999;width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#374151,#1f2937);box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:background .3s,box-shadow .3s;';
   document.body.appendChild(fab);
 })();
