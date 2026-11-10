@@ -6055,8 +6055,13 @@ async function _jarvisProcess(cmd){
     +'그 외: {"action":"reply","text":"..."}. JSON만 출력하세요.';
   var res=await callGemini(sys, cmd);
   if(!res){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); return; }
+  console.log('[자비스 응답]', res);
   try{
-    var j=JSON.parse(res.trim().replace(/```json|```/g,'').trim());
+    var cleaned=res.trim().replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    // JSON 블록만 추출 시도
+    var jsonMatch=cleaned.match(/\{[\s\S]*\}/);
+    if(jsonMatch) cleaned=jsonMatch[0];
+    var j=JSON.parse(cleaned);
     if(j.action==='add_plan'){
       if(j.duration_known && j.end){
         /* 소요시간 이미 알고 있으면 바로 추가 */
