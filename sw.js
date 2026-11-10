@@ -1,4 +1,4 @@
-const CACHE = 'binder-v1';
+const CACHE = 'binder-v6';
 const ASSETS = [
   '/binder-app/',
   '/binder-app/index.html',
