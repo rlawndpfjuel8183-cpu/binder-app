@@ -5905,6 +5905,19 @@ function _voiceStartCanvas(){
 }
 
 function showVoiceOverlay(state, text){
+  /* 커맨드바가 열려있으면 결과를 그 안에 표시 */
+  var cmdbar=document.getElementById('jarvis-cmdbar');
+  if(cmdbar && state==='done' && text){
+    var resultEl=document.getElementById('jarvis-cmdbar-result');
+    if(resultEl){ resultEl.textContent=text; resultEl.style.display='block'; }
+    if(window._jcbPendingClose){
+      var fn=window._jcbPendingClose;
+      window._jcbPendingClose=null;
+      var delay=Math.max(2200, Math.min(text.length*60, 6000));
+      setTimeout(function(){ fn(); _jarvisRunning=false; _updateJarvisFab(false); }, delay);
+    }
+    return;
+  }
   var ov=document.getElementById('voice-overlay');
   if(!ov){
     ov=document.createElement('div');
@@ -5978,48 +5991,173 @@ var _jarvisRec=null, _jarvisRunning=false, _jarvisConvMode=false, _jarvisHistory
 
 function getJarvisShortcut(){ return (getSettings().jarvis_shortcut||'ctrl+space'); }
 
+/* ── 자비스 커맨드바 (클로드 데스크탑 스타일) ── */
 function invokeJarvis(){
   if(_jarvisRunning) return;
-  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
-    showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return;
-  }
-  _jarvisRunning=true;
-  _updateJarvisFab(true);
-
-  /* Siri 스타일: 진동(지원시) + 즉시 오버레이 */
-  if(navigator.vibrate) navigator.vibrate([30,20,30]);
-  _jarvisSay('네');
-  showVoiceOverlay('listening');
-  _voiceInitAudio();
-  if(!_voiceAnimFrame) _voiceStartCanvas();
-
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  _jarvisRec=new SR();
-  _jarvisRec.lang='ko-KR';
-  _jarvisRec.interimResults=false;
-  _jarvisRec.maxAlternatives=1;
-
-  _jarvisRec.onresult=function(e){
-    var cmd=e.results[0][0].transcript;
-    showVoiceOverlay('done', cmd);
-    _jarvisProcess(cmd);
-  };
-  _jarvisRec.onerror=function(e){
-    hideVoiceOverlay();
-    _jarvisRunning=false;
-    _updateJarvisFab(false);
-    if(e.error!=='aborted') showToast('음성 인식 오류: '+e.error);
-  };
-  _jarvisRec.onend=function(){
-    var ov=document.getElementById('voice-overlay');
-    if(ov && !ov.classList.contains('done')){
-      hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false);
-    }
-  };
-  try{ _jarvisRec.start(); }catch(e){ _jarvisRunning=false; _updateJarvisFab(false); }
+  _showJarvisCmdBar();
 }
 
-function toggleJarvis(){ invokeJarvis(); }
+function _showJarvisCmdBar(){
+  var existing=document.getElementById('jarvis-cmdbar');
+  if(existing){ existing.querySelector('.jcb-input').focus(); return; }
+
+  if(navigator.vibrate) navigator.vibrate([20,10,20]);
+
+  var bar=document.createElement('div');
+  bar.id='jarvis-cmdbar';
+
+  var style=document.createElement('style');
+  style.textContent=
+    '#jarvis-cmdbar{'
+    +'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;'
+    +'display:flex;align-items:flex-start;justify-content:center;'
+    +'padding-top:clamp(60px,12vh,120px);'
+    +'background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);'
+    +'animation:jcb-bg-in .15s ease;'
+    +'}'
+    +'@keyframes jcb-bg-in{from{opacity:0}to{opacity:1}}'
+    +'#jarvis-cmdbar .jcb-box{'
+    +'width:min(640px,92vw);'
+    +'background:rgba(18,16,32,0.96);'
+    +'border:1px solid rgba(140,100,255,0.35);'
+    +'border-radius:18px;'
+    +'box-shadow:0 8px 60px rgba(100,60,220,0.45),0 2px 12px rgba(0,0,0,0.5);'
+    +'overflow:hidden;'
+    +'animation:jcb-in .18s cubic-bezier(.22,1,.36,1);'
+    +'}'
+    +'@keyframes jcb-in{from{opacity:0;transform:translateY(-18px) scale(.97)}to{opacity:1;transform:none}}'
+    +'#jarvis-cmdbar .jcb-top{'
+    +'display:flex;align-items:center;gap:12px;padding:14px 18px;'
+    +'}'
+    +'#jarvis-cmdbar .jcb-logo{'
+    +'width:30px;height:30px;border-radius:50%;flex-shrink:0;'
+    +'background:radial-gradient(circle at 35% 35%,rgba(180,130,255,0.5),rgba(60,20,140,0.8));'
+    +'box-shadow:0 0 14px rgba(140,80,255,0.5);'
+    +'display:flex;align-items:center;justify-content:center;font-size:15px;'
+    +'}'
+    +'#jarvis-cmdbar .jcb-input{'
+    +'flex:1;background:transparent;border:none;outline:none;'
+    +'color:#f0eaff;font-size:17px;font-weight:500;letter-spacing:.01em;'
+    +'caret-color:#a78bfa;'
+    +'}'
+    +'#jarvis-cmdbar .jcb-input::placeholder{color:rgba(180,160,255,0.4);}'
+    +'#jarvis-cmdbar .jcb-mic{'
+    +'width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(140,100,255,0.4);'
+    +'background:rgba(140,100,255,0.1);color:#a78bfa;cursor:pointer;'
+    +'font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;'
+    +'transition:background .15s,border-color .15s;'
+    +'}'
+    +'#jarvis-cmdbar .jcb-mic:hover{background:rgba(140,100,255,0.25);border-color:rgba(180,130,255,0.7);}'
+    +'#jarvis-cmdbar .jcb-mic.listening{background:rgba(220,80,80,0.2);border-color:rgba(255,100,100,0.6);color:#f87171;animation:jcb-pulse 1s infinite;}'
+    +'@keyframes jcb-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,100,100,0.4)}50%{box-shadow:0 0 0 6px rgba(255,100,100,0)}}'
+    +'#jarvis-cmdbar .jcb-hint{'
+    +'padding:0 18px 12px;font-size:11px;color:rgba(180,160,255,0.35);'
+    +'display:flex;gap:14px;'
+    +'}'
+    +'#jarvis-cmdbar .jcb-hint kbd{'
+    +'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);'
+    +'border-radius:4px;padding:1px 5px;font-size:10px;font-family:inherit;color:rgba(200,180,255,0.6);'
+    +'}'
+    +'#jarvis-cmdbar .jcb-result{'
+    +'padding:0 18px 14px;color:rgba(220,210,255,0.85);font-size:14px;line-height:1.6;'
+    +'border-top:1px solid rgba(140,100,255,0.15);padding-top:12px;'
+    +'max-height:260px;overflow-y:auto;white-space:pre-wrap;'
+    +'display:none;'
+    +'}';
+  document.head.appendChild(style);
+
+  bar.innerHTML=
+    '<div class="jcb-box">'
+    +'<div class="jcb-top">'
+    +'  <div class="jcb-logo">✦</div>'
+    +'  <input class="jcb-input" id="jarvis-cmdbar-input" placeholder="자비스에게 물어보세요…" autocomplete="off" spellcheck="false"/>'
+    +'  <button class="jcb-mic" id="jarvis-cmdbar-mic" title="음성 입력">🎙</button>'
+    +'</div>'
+    +'<div class="jcb-hint"><span><kbd>Enter</kbd> 전송</span><span><kbd>Esc</kbd> 닫기</span><span><kbd>🎙</kbd> 음성</span></div>'
+    +'<div class="jcb-result" id="jarvis-cmdbar-result"></div>'
+    +'</div>';
+
+  document.body.appendChild(bar);
+
+  var input=bar.querySelector('.jcb-input');
+  var micBtn=bar.querySelector('.jcb-mic');
+  var resultEl=bar.querySelector('.jcb-result');
+
+  setTimeout(function(){ input.focus(); }, 50);
+
+  /* Esc 또는 배경 클릭으로 닫기 */
+  function closeBar(){
+    if(_jarvisRunning){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); }
+    if(window._jcbRec){ try{_jcbRec.stop();}catch(e){} window._jcbRec=null; }
+    bar.style.animation='none';
+    bar.style.opacity='0';
+    bar.style.transition='opacity .15s';
+    setTimeout(function(){ bar.remove(); style.remove(); },150);
+  }
+  bar.addEventListener('mousedown',function(e){ if(e.target===bar) closeBar(); });
+
+  /* Enter 전송 */
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){ closeBar(); return; }
+    if(e.key==='Enter' && input.value.trim()){
+      e.preventDefault();
+      var cmd=input.value.trim();
+      input.disabled=true;
+      micBtn.disabled=true;
+      resultEl.textContent='…';
+      resultEl.style.display='block';
+      _jarvisRunning=true; _updateJarvisFab(true);
+      _jarvisProcess(cmd).then ? void 0 : void 0; // fire
+      /* 결과를 오버레이 대신 커맨드바 안에 표시하는 훅 */
+      var orig=window._jcbOnResult;
+      window._jcbPendingClose=closeBar;
+    }
+  });
+
+  /* 음성 입력 */
+  micBtn.addEventListener('click',function(){
+    if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+      showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return;
+    }
+    if(window._jcbRec){ try{_jcbRec.stop();}catch(e){} window._jcbRec=null; micBtn.classList.remove('listening'); return; }
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    var rec=new SR();
+    rec.lang='ko-KR'; rec.interimResults=true; rec.maxAlternatives=1;
+    window._jcbRec=rec;
+    micBtn.classList.add('listening');
+    rec.onresult=function(e){
+      var t=e.results[0][0].transcript;
+      input.value=t;
+    };
+    rec.onend=function(){
+      micBtn.classList.remove('listening');
+      window._jcbRec=null;
+      var cmd=input.value.trim();
+      if(cmd){
+        input.disabled=true; micBtn.disabled=true;
+        resultEl.textContent='…'; resultEl.style.display='block';
+        _jarvisRunning=true; _updateJarvisFab(true);
+        _jarvisProcess(cmd);
+        window._jcbPendingClose=closeBar;
+      }
+    };
+    rec.onerror=function(){ micBtn.classList.remove('listening'); window._jcbRec=null; };
+    try{ rec.start(); }catch(e){}
+  });
+
+  /* 전역 Esc 핸들러 */
+  function onKey(e){ if(e.key==='Escape') closeBar(); }
+  document.addEventListener('keydown', onKey);
+  bar._removeKey=function(){ document.removeEventListener('keydown',onKey); };
+  var origRemove=bar.remove.bind(bar);
+  bar.remove=function(){ if(bar._removeKey) bar._removeKey(); origRemove(); };
+}
+
+function toggleJarvis(){
+  var bar=document.getElementById('jarvis-cmdbar');
+  if(bar){ bar.remove(); }
+  else { invokeJarvis(); }
+}
 
 /* ── 대화 모드 ───────────────────────────────── */
 function startJarvisConv(){
