@@ -2661,7 +2661,7 @@ function renderGoalList(){
     return;
   }
 
-  var filteredTopNonCat = activeCatFilter==='all' ? topLevelNonCat : [];
+  var filteredTopNonCat = topLevelNonCat;
 
   function renderGoalCard(g, isTopLevel){
     var color=g.color||'#5B52E8';
