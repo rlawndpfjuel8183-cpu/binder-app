@@ -5908,7 +5908,8 @@ function showVoiceOverlay(state, text){
       +'  <div class="vo-orb">🎙️</div>'
       +'  <div class="vo-label">말씀하세요</div>'
       +'  <div class="vo-sub">골이나 일정 내용을 자연스럽게 말해주세요</div>'
-      +'  <button class="vo-cancel" onclick="if(window._voiceRecognition)window._voiceRecognition.stop();hideVoiceOverlay();">취소</button>'
+      +'  <button id="jarvis-conv-btn" class="vo-cancel" style="background:rgba(120,60,255,.15);border-color:rgba(180,130,255,.4);color:#c8aaff;margin-bottom:4px;" onclick="if(_jarvisConvMode){stopJarvisConv();}else{hideVoiceOverlay();_jarvisRunning=false;_updateJarvisFab(false);setTimeout(startJarvisConv,200);}">💬 대화 모드</button>'
+      +'  <button class="vo-cancel" onclick="if(_jarvisConvMode)stopJarvisConv();if(window._jarvisRec)_jarvisRec.stop();hideVoiceOverlay();_jarvisRunning=false;_updateJarvisFab(false);">취소</button>'
       +'</div>';
     document.body.appendChild(ov);
     /* canvas 크기 맞추기 */
@@ -5952,7 +5953,7 @@ function hideVoiceOverlay(){
    자비스 어시스턴트 — 단축키 호출 방식
    마이크는 호출 시에만 켜짐 (상시 청취 없음)
 ═══════════════════════════════════════ */
-var _jarvisRec=null, _jarvisRunning=false;
+var _jarvisRec=null, _jarvisRunning=false, _jarvisConvMode=false, _jarvisHistory=[];
 
 function getJarvisShortcut(){ return (getSettings().jarvis_shortcut||'ctrl+space'); }
 
@@ -5998,6 +5999,135 @@ function invokeJarvis(){
 }
 
 function toggleJarvis(){ invokeJarvis(); }
+
+/* ── 대화 모드 ───────────────────────────────── */
+function startJarvisConv(){
+  if(_jarvisRunning) return;
+  _jarvisConvMode=true;
+  _jarvisHistory=[];
+  if(navigator.vibrate) navigator.vibrate([30,20,30,20,30]);
+  _jarvisSay('대화 모드를 시작합니다. 말씀하세요.');
+  setTimeout(function(){ _jarvisConvListen(); }, 1600);
+}
+
+function stopJarvisConv(){
+  _jarvisConvMode=false;
+  _jarvisHistory=[];
+  _jarvisRunning=false;
+  _updateJarvisFab(false);
+  _updateConvModeFab(false);
+  if(_jarvisRec) try{ _jarvisRec.stop(); }catch(e){}
+  speechSynthesis.cancel();
+  hideVoiceOverlay();
+  _closeJarvisChoice();
+}
+
+function _jarvisConvListen(){
+  if(!_jarvisConvMode){ stopJarvisConv(); return; }
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)) return;
+  _jarvisRunning=true;
+  _updateJarvisFab(true);
+  showVoiceOverlay('listening');
+  if(!_voiceAnimFrame) _voiceStartCanvas();
+
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _jarvisRec=new SR();
+  _jarvisRec.lang='ko-KR'; _jarvisRec.interimResults=false; _jarvisRec.maxAlternatives=1;
+  _jarvisRec.onresult=function(e){
+    var cmd=e.results[0][0].transcript;
+    if(/^(종료|그만|끝|스톱|대화.*끝|bye|stop)$/i.test(cmd.trim())){
+      _jarvisSay('대화를 종료합니다.'); stopJarvisConv(); return;
+    }
+    showVoiceOverlay('done', cmd);
+    _jarvisHistory.push({role:'user', text:cmd});
+    _jarvisConvProcess(cmd);
+  };
+  _jarvisRec.onerror=function(e){
+    if(e.error==='no-speech' && _jarvisConvMode){ _jarvisConvListen(); return; }
+    if(e.error!=='aborted') showToast('음성 오류: '+e.error);
+    if(_jarvisConvMode) setTimeout(_jarvisConvListen, 800);
+    else stopJarvisConv();
+  };
+  _jarvisRec.onend=function(){
+    var ov=document.getElementById('voice-overlay');
+    if(ov && ov.classList.contains('listening') && _jarvisConvMode) _jarvisConvListen();
+  };
+  try{ _jarvisRec.start(); }catch(e){ if(_jarvisConvMode) setTimeout(_jarvisConvListen,800); }
+}
+
+function _jarvisConvSayThen(text, next){
+  speechSynthesis.cancel();
+  if(!window.speechSynthesis){ next && next(); return; }
+  var u=new SpeechSynthesisUtterance(text);
+  u.lang='ko-KR'; u.rate=1.05; u.pitch=1;
+  u.onend=function(){ if(next) setTimeout(next, 400); };
+  speechSynthesis.speak(u);
+}
+
+async function _jarvisConvProcess(cmd){
+  var key=getApiKey();
+  if(!key){ _jarvisConvSayThen('API 키가 없습니다.', null); stopJarvisConv(); return; }
+  var today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+
+  /* 액션 키워드는 기존 처리기로 위임 */
+  if(/브리핑|오늘.*요약|골.*요약/i.test(cmd)){
+    hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false);
+    _jarvisConvMode=false; _jarvisBriefing(); return;
+  }
+
+  /* 대화 히스토리 포함 프롬프트 */
+  var historyStr=_jarvisHistory.slice(-6).map(function(h){ return h.role+': '+h.text; }).join('\n');
+  var sys='당신은 바인더 앱의 AI 어시스턴트 자비스입니다. 한국어로 짧고 자연스럽게 대화하세요. 오늘은 '+today+'입니다.\n'
+    +'일정 추가 요청: {"action":"add_plan","title":"...","date":"YYYY-MM-DD","start":"HH:MM","duration_known":false}\n'
+    +'골 추가 요청: {"action":"add_goal","title":"..."}\n'
+    +'기능 요청("만들어줘","추가해줘" 등): {"action":"feature_request","request":"원문"}\n'
+    +'그 외 일반 대화: {"action":"reply","text":"짧고 자연스러운 답변"}\n'
+    +'JSON만 출력하세요.';
+  var userMsg=(historyStr?'[대화 기록]\n'+historyStr+'\n\n[현재 입력]\n':'')+cmd;
+  var res=await callGemini(sys, userMsg);
+  if(!res){
+    if(_jarvisConvMode) setTimeout(_jarvisConvListen, 800);
+    return;
+  }
+  try{
+    var cleaned=res.trim().replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    var jm=cleaned.match(/\{[\s\S]*\}/);
+    if(jm) cleaned=jm[0];
+    var j=JSON.parse(cleaned);
+    if(j.action==='add_plan'){
+      _jarvisConvMode=false;
+      _jarvisAskDuration(j.title, j.date, j.start||'09:00');
+    } else if(j.action==='add_goal'){
+      _jarvisConvMode=false;
+      _jarvisStartGoalFlow(j.title);
+    } else if(j.action==='feature_request'){
+      _jarvisConvMode=false; stopJarvisConv();
+      _jarvisFeatureRequest(j.request||cmd);
+    } else {
+      var reply=j.text||res;
+      _jarvisHistory.push({role:'assistant', text:reply});
+      showVoiceOverlay('done', reply);
+      _jarvisRunning=false; _updateJarvisFab(false);
+      _jarvisConvSayThen(reply, function(){
+        if(_jarvisConvMode) _jarvisConvListen();
+      });
+    }
+  } catch(e){
+    _jarvisHistory.push({role:'assistant', text:res});
+    showVoiceOverlay('done', res);
+    _jarvisRunning=false; _updateJarvisFab(false);
+    _jarvisConvSayThen(res, function(){
+      if(_jarvisConvMode) _jarvisConvListen();
+    });
+  }
+}
+
+function _updateConvModeFab(on){
+  var btn=document.getElementById('jarvis-conv-btn');
+  if(!btn) return;
+  btn.style.background=on?'linear-gradient(135deg,#7c3aed,#a855f7)':'rgba(255,255,255,.08)';
+  btn.textContent=on?'💬 대화 중 (종료하려면 탭)':'💬 대화 모드';
+}
 
 function _updateJarvisFab(on){
   var fab=document.getElementById('jarvis-fab');
@@ -6092,11 +6222,13 @@ async function _jarvisProcess(cmd){
     } else {
       var reply3=j.text||res;
       showVoiceOverlay('done', reply3); _jarvisSay(reply3);
-      setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },8000);
+      var d3=Math.max(4000, reply3.length*80);
+      setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },d3);
     }
   } catch(e){
     showVoiceOverlay('done', res); _jarvisSay(res);
-    setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },8000);
+    var de=Math.max(4000, res.length*80);
+    setTimeout(function(){ hideVoiceOverlay(); _jarvisRunning=false; _updateJarvisFab(false); },de);
   }
 }
 
