@@ -2944,16 +2944,13 @@ function renderTimeline(){
       +'<i class="fa-solid fa-plus"></i> 골 추가</button></div>';
   } else {
     palette.innerHTML = '';
-    var topGoals = paletteGoals.filter(function(g){ return !g.parent_id; });
-    var childGoals = paletteGoals.filter(function(g){ return !!g.parent_id; });
     var _expandedGoals = {};
 
-    function makeChip(g, isChild){
+    function makeChip(g, depth){
       var chip = document.createElement('div');
       chip.className = 'tl-goal-chip';
       var chipOpacity = g.status==='backlog' ? '0.55' : '1';
-      var indent = isChild ? 'margin-left:14px;margin-top:3px;' : '';
-      chip.style.cssText = 'background:'+(g.color||'#5B52E8')+'18;border-color:'+(g.color||'#5B52E8')+';color:'+(g.color||'#5B52E8')+';opacity:'+chipOpacity+';'+indent;
+      chip.style.cssText = 'background:'+(g.color||'#5B52E8')+'18;border-color:'+(g.color||'#5B52E8')+';color:'+(g.color||'#5B52E8')+';opacity:'+chipOpacity+';margin-left:'+(depth*14)+'px;margin-top:3px;';
       var estLabel = g.est_min ? formatEstMin(g.est_min) : '1h';
       chip.innerHTML = '<i class="fa-solid fa-grip-dots-vertical"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(g.title)+'</span>'
         +(g.status==='backlog'?'<span style="font-size:9px;opacity:.6;flex-shrink:0;">대기</span>':'')
@@ -2973,47 +2970,44 @@ function renderTimeline(){
       return chip;
     }
 
+    function renderNode(g, depth, container){
+      var kids = paletteGoals.filter(function(c){ return c.parent_id===g.id; });
+      var hasKids = kids.length > 0;
+      var expanded = _expandedGoals[g.id];
+
+      if(hasKids){
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:4px;';
+        var chip = makeChip(g, depth);
+        chip.style.flex = '1';
+        chip.style.marginLeft = (depth*14)+'px';
+        var arrow = document.createElement('span');
+        arrow.style.cssText = 'flex-shrink:0;font-size:10px;color:'+(g.color||'#5B52E8')+';cursor:pointer;padding:4px 2px;transition:transform .15s;transform:'+(expanded?'rotate(90deg)':'rotate(0deg)')+';';
+        arrow.innerHTML = '▶';
+        row.appendChild(chip);
+        row.appendChild(arrow);
+        container.appendChild(row);
+
+        var childWrap = document.createElement('div');
+        childWrap.style.display = expanded ? '' : 'none';
+        if(expanded) kids.forEach(function(kid){ renderNode(kid, depth+1, childWrap); });
+        container.appendChild(childWrap);
+
+        var toggle = function(){
+          _expandedGoals[g.id] = !_expandedGoals[g.id];
+          renderPalette();
+        };
+        chip.addEventListener('click', function(e){ if(!_dragGoal) toggle(); });
+        arrow.addEventListener('click', toggle);
+      } else {
+        container.appendChild(makeChip(g, depth));
+      }
+    }
+
     function renderPalette(){
       palette.innerHTML = '';
-      topGoals.forEach(function(g){
-        var kids = childGoals.filter(function(c){ return c.parent_id===g.id; });
-        var hasKids = kids.length > 0;
-        var expanded = _expandedGoals[g.id];
-
-        var wrapper = document.createElement('div');
-
-        if(hasKids){
-          // 부모 골: 클릭하면 하위 토글
-          var parentRow = document.createElement('div');
-          parentRow.style.cssText = 'display:flex;align-items:center;gap:4px;';
-          var chip = makeChip(g, false);
-          chip.style.flex = '1';
-          // expand arrow
-          var arrow = document.createElement('span');
-          arrow.style.cssText = 'flex-shrink:0;font-size:10px;color:'+(g.color||'#5B52E8')+';cursor:pointer;padding:4px 2px;transition:transform .15s;transform:'+(expanded?'rotate(90deg)':'rotate(0deg)')+';';
-          arrow.innerHTML = '▶';
-          parentRow.appendChild(chip);
-          parentRow.appendChild(arrow);
-          wrapper.appendChild(parentRow);
-
-          // 하위 골 컨테이너
-          var childWrap = document.createElement('div');
-          childWrap.style.display = expanded ? '' : 'none';
-          kids.forEach(function(kid){
-            childWrap.appendChild(makeChip(kid, true));
-          });
-          wrapper.appendChild(childWrap);
-
-          var toggleFn = function(){
-            _expandedGoals[g.id] = !_expandedGoals[g.id];
-            renderPalette();
-          };
-          chip.addEventListener('click', function(e){ if(!_dragGoal) toggleFn(); });
-          arrow.addEventListener('click', toggleFn);
-        } else {
-          wrapper.appendChild(makeChip(g, false));
-        }
-        palette.appendChild(wrapper);
+      paletteGoals.filter(function(g){ return !g.parent_id; }).forEach(function(g){
+        renderNode(g, 0, palette);
       });
     }
     renderPalette();
