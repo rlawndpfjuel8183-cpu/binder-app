@@ -4669,7 +4669,7 @@ async function callGemini(system, user){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
   });
-  if(!res.ok){ var errMsg='AI 오류: '+res.status+(res.status===400?' (API키 확인)':res.status===403?' (키 권한 없음)':''); showToast(errMsg,4000); showVoiceOverlay('done',errMsg); _jarvisRunning=false; _updateJarvisFab(false); return null; }
+  if(!res.ok){ var errBody=await res.text().catch(function(){return '';}); var errDetail=errBody.substring(0,120); var errMsg='AI 오류: '+res.status+(res.status===400?' (API키 확인)':res.status===403?' (키 권한 없음)':' '+errDetail); console.error('Gemini API error',res.status, errBody); showToast(errMsg,6000); showVoiceOverlay('done','AI 오류: '+res.status); _jarvisRunning=false; _updateJarvisFab(false); return null; }
   var data=await res.json();
   return data.candidates&&data.candidates[0]?data.candidates[0].content.parts[0].text:null;
 }
