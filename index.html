@@ -1571,10 +1571,13 @@ label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);margin
             if(e.ctrlKey||e.metaKey) parts.push('ctrl');
             if(e.altKey) parts.push('alt');
             if(e.shiftKey) parts.push('shift');
-            var k=e.key;
-            if(k==='Control'||k==='Meta'||k==='Alt'||k==='Shift') return;
-            if(k===' ') k='space';
-            else if(k.length===1) k=k.toLowerCase();
+            if(e.code==='Control'||e.code==='Meta'||e.code==='Alt'||e.code==='Shift'||e.key==='Control'||e.key==='Meta'||e.key==='Alt'||e.key==='Shift') return;
+            var k=(function(){
+              if(e.code==='Space') return 'space';
+              var m=e.code.match(/^Key([A-Z])$/); if(m) return m[1].toLowerCase();
+              var d=e.code.match(/^Digit(\d)$/); if(d) return d[1];
+              return e.key.replace(' ','space').toLowerCase();
+            })();
             parts.push(k);
             var combo=parts.join('+');
             this.value=combo;
@@ -6315,7 +6318,14 @@ function _updateJarvisFab(on){
     if(e.ctrlKey||e.metaKey) key.push('ctrl');
     if(e.altKey) key.push('alt');
     if(e.shiftKey) key.push('shift');
-    key.push(e.code==='Space'?'space':e.key.toLowerCase());
+    /* e.code는 언어(한/영) 무관하게 물리 키 위치 반환 */
+    var physKey=(function(){
+      if(e.code==='Space') return 'space';
+      var m=e.code.match(/^Key([A-Z])$/); if(m) return m[1].toLowerCase();
+      var d=e.code.match(/^Digit(\d)$/); if(d) return d[1];
+      return e.key.toLowerCase();
+    })();
+    key.push(physKey);
     var combo=key.join('+');
 
     if(combo===shortcut){
