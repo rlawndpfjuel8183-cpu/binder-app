@@ -6449,6 +6449,44 @@ function _showJarvisChoice(msg, options, onSelect){
     grid.appendChild(btn);
   });
   box.appendChild(grid);
+
+  /* 음성으로 답하기 버튼 */
+  if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window){
+    var voiceBtn=document.createElement('button');
+    voiceBtn.textContent='🎤 음성으로 답하기';
+    voiceBtn.style.cssText='margin-top:14px;display:block;width:100%;padding:11px;border-radius:99px;border:1.5px solid rgba(180,130,255,.5);background:rgba(120,80,255,.15);color:#c8aaff;font-size:13px;font-weight:600;cursor:pointer;';
+    voiceBtn.onclick=function(){
+      voiceBtn.textContent='🎙 듣는 중...';
+      voiceBtn.disabled=true;
+      var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      var rec=new SR();
+      rec.lang='ko-KR'; rec.interimResults=false; rec.maxAlternatives=3;
+      rec.onresult=function(e){
+        var transcripts=[];
+        for(var i=0;i<e.results[0].length;i++) transcripts.push(e.results[0][i].transcript.trim());
+        var matched=null;
+        transcripts.forEach(function(t){
+          if(matched) return;
+          options.forEach(function(opt){
+            if(!matched && opt.label.replace(/[^가-힣a-z0-9]/gi,'').toLowerCase().includes(t.replace(/[^가-힣a-z0-9]/gi,'').toLowerCase().substring(0,4)))
+              matched=opt;
+          });
+        });
+        if(!matched) transcripts.forEach(function(t){
+          if(matched) return;
+          options.forEach(function(opt){
+            if(!matched && t.length>=2 && opt.label.includes(t.substring(0,2))) matched=opt;
+          });
+        });
+        if(matched){ onSelect(matched.value); }
+        else{ voiceBtn.textContent='🎤 다시 말하기'; voiceBtn.disabled=false; showToast('인식 실패: "'+transcripts[0]+'"'); }
+      };
+      rec.onerror=function(){ voiceBtn.textContent='🎤 다시 말하기'; voiceBtn.disabled=false; };
+      rec.start();
+    };
+    box.appendChild(voiceBtn);
+  }
+
   document.body.appendChild(box);
 }
 
