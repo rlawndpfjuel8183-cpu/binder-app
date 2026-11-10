@@ -1,4 +1,4 @@
-const CACHE = 'binder-v8';
+const CACHE = 'binder-v9';
 const ASSETS = [
   '/binder-app/manifest.json'
 ];
@@ -28,7 +28,8 @@ self.addEventListener('fetch', e => {
   /* GET 요청만 캐시 (POST 등은 캐시 불가) */
   if (e.request.method !== 'GET') return;
   /* index.html은 항상 네트워크에서 최신 버전 가져오기 */
-  if (e.request.url.includes('/binder-app/') && !e.request.url.includes('.')) {
+  const url = e.request.url;
+  if (url.endsWith('/binder-app/') || url.endsWith('/binder-app') || url.includes('/binder-app/index.html')) {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
