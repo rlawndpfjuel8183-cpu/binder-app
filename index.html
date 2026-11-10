@@ -4660,31 +4660,44 @@ selectColor=function(containerId, color){
 ══════════════════════════════════════════ */
 function getApiKey(){ return (getSettings().api_key||'').trim(); }
 
+async function _getGeminiModel(key){
+  var saved=localStorage.getItem('b2_gemini_model');
+  if(saved) return saved;
+  try{
+    var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?key='+key);
+    if(!r.ok) return 'gemini-1.5-flash';
+    var d=await r.json();
+    var names=(d.models||[]).map(function(m){return m.name.replace('models/','');});
+    var prefer=['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-pro','gemini-pro'];
+    for(var i=0;i<prefer.length;i++){
+      if(names.some(function(n){return n===prefer[i]||n.startsWith(prefer[i])})){
+        localStorage.setItem('b2_gemini_model',prefer[i]); return prefer[i];
+      }
+    }
+    var gen=names.find(function(n){return n.includes('gemini')&&n.includes('flash');});
+    if(gen){ localStorage.setItem('b2_gemini_model',gen); return gen; }
+  }catch(e){}
+  return 'gemini-1.5-flash';
+}
 async function callGemini(system, user){
   var key=(getApiKey()||'').trim();
   if(!key){ openSettings(); showToast('Gemini API Key를 먼저 설정하세요'); return null; }
   var prompt=system+'\n\n'+user;
-  var models=['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-pro','gemini-pro'];
-  var savedModel=localStorage.getItem('b2_gemini_model');
-  if(savedModel) models=[savedModel].concat(models.filter(function(m){return m!==savedModel;}));
-  for(var i=0;i<models.length;i++){
-    var model=models[i];
-    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+key,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
-    });
-    if(res.ok){
-      if(model!==savedModel) localStorage.setItem('b2_gemini_model',model);
-      var data=await res.json();
-      return data.candidates&&data.candidates[0]?data.candidates[0].content.parts[0].text:null;
-    }
-    if(res.status!==404) break;
+  var model=await _getGeminiModel(key);
+  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+key,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+  });
+  if(!res.ok){
+    localStorage.removeItem('b2_gemini_model');
+    var errBody=await res.text().catch(function(){return '';});
+    console.error('Gemini API error',res.status,model,errBody);
+    var errMsg='AI 오류: '+res.status+' (모델: '+model+')';
+    showToast(errMsg,6000); showVoiceOverlay('done','AI 오류: '+res.status); _jarvisRunning=false; _updateJarvisFab(false); return null;
   }
-  var errBody=await res.text().catch(function(){return '';});
-  console.error('Gemini API error',res.status,errBody);
-  var errMsg='AI 오류: '+res.status+(res.status===400?' (API키 확인)':res.status===403?' (키 권한 없음)':' '+errBody.substring(0,80));
-  showToast(errMsg,6000); showVoiceOverlay('done','AI 오류: '+res.status); _jarvisRunning=false; _updateJarvisFab(false); return null;
+  var data=await res.json();
+  return data.candidates&&data.candidates[0]?data.candidates[0].content.parts[0].text:null;
 }
 
 // 하위 호환성
