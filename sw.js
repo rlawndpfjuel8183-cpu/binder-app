@@ -1,4 +1,4 @@
-const CACHE = 'binder-v6';
+const CACHE = 'binder-v7';
 const ASSETS = [
   '/binder-app/',
   '/binder-app/index.html',
@@ -27,7 +27,8 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  /* 앱 파일은 캐시 우선 → 백그라운드 갱신 */
+  /* GET 요청만 캐시 (POST 등은 캐시 불가) */
+  if (e.request.method !== 'GET') return;
   e.respondWith(
     caches.match(e.request).then(cached => {
       const fresh = fetch(e.request).then(res => {
