@@ -6515,6 +6515,7 @@ function _jarvisAskGoalType(parentTitle){
     {label:'· 소분류', value:'sub'},
   ], function(val){
     _jarvisGoalDraft.type=val;
+    if(val==='recurring_job'){ _jarvisCreateGoal(null); return; }
     _jarvisAskDeadline();
   });
 }
