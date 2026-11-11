@@ -7898,7 +7898,106 @@ init();
   fab.onclick=invokeJarvisVoice;
   fab.style.cssText='position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));right:16px;z-index:9999;width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#374151,#1f2937);box-shadow:0 4px 20px rgba(0,0,0,0.35);transition:background .3s,box-shadow .3s;';
   document.body.appendChild(fab);
+
+  /* 웨이크워드 토글 버튼 */
+  var wakeBtn=document.createElement('button');
+  wakeBtn.id='jarvis-wake-btn';
+  wakeBtn.title='웨이크워드 듣기';
+  wakeBtn.innerHTML='🎙';
+  wakeBtn.style.cssText='position:fixed;bottom:calc(126px + env(safe-area-inset-bottom));right:16px;z-index:9999;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);cursor:pointer;color:rgba(255,255,255,0.5);font-size:16px;display:flex;align-items:center;justify-content:center;background:rgba(30,27,50,0.85);backdrop-filter:blur(8px);box-shadow:0 2px 12px rgba(0,0,0,0.3);transition:all .2s;';
+  wakeBtn.onclick=toggleWakeListen;
+  document.body.appendChild(wakeBtn);
 })();
+
+/* ── 웨이크워드 항상 듣기 ── */
+var _wakeListening=false, _wakeRec=null, _wakeRestartTimer=null;
+
+function getWakeWord(){ return (getSettings().wake_word||'자비스').trim().toLowerCase(); }
+
+function toggleWakeListen(){
+  if(_wakeListening) stopWakeListen();
+  else startWakeListen();
+}
+
+function startWakeListen(){
+  if(_wakeListening) return;
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    showToast('이 브라우저는 음성 인식을 지원하지 않습니다'); return;
+  }
+  _wakeListening=true;
+  _updateWakeBtn(true);
+  showToast('"'+getWakeWord()+'(야/아)" 라고 부르면 자비스가 켜져요', 3000);
+  _wakeLoop();
+}
+
+function stopWakeListen(){
+  _wakeListening=false;
+  _updateWakeBtn(false);
+  if(_wakeRestartTimer){ clearTimeout(_wakeRestartTimer); _wakeRestartTimer=null; }
+  if(_wakeRec){ try{ _wakeRec.stop(); }catch(e){} _wakeRec=null; }
+}
+
+function _wakeLoop(){
+  if(!_wakeListening) return;
+  if(_jarvisRunning){ _wakeRestartTimer=setTimeout(_wakeLoop, 1200); return; }
+
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var rec=new SR();
+  rec.lang='ko-KR'; rec.interimResults=true; rec.maxAlternatives=1;
+  rec.continuous=false;
+  _wakeRec=rec;
+
+  rec.onresult=function(e){
+    var t=e.results[0][0].transcript.trim().toLowerCase();
+    var ww=getWakeWord();
+    /* "자비스야", "자비스", "자비스아" 등 매칭 */
+    if(t.includes(ww)){
+      rec.stop();
+      _wakeRec=null;
+      if(!_jarvisRunning){
+        if(navigator.vibrate) navigator.vibrate([30,20,30]);
+        invokeJarvisVoice();
+      }
+    }
+  };
+  rec.onend=function(){
+    _wakeRec=null;
+    if(_wakeListening && !_jarvisRunning){
+      _wakeRestartTimer=setTimeout(_wakeLoop, 300);
+    }
+  };
+  rec.onerror=function(e){
+    _wakeRec=null;
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      _wakeListening=false; _updateWakeBtn(false);
+      showToast('마이크 권한이 필요합니다'); return;
+    }
+    if(_wakeListening) _wakeRestartTimer=setTimeout(_wakeLoop, 1000);
+  };
+  try{ rec.start(); }catch(e){ if(_wakeListening) _wakeRestartTimer=setTimeout(_wakeLoop,800); }
+}
+
+function _updateWakeBtn(on){
+  var btn=document.getElementById('jarvis-wake-btn');
+  if(!btn) return;
+  btn.style.color=on?'#a78bfa':'rgba(255,255,255,0.5)';
+  btn.style.borderColor=on?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.15)';
+  btn.style.background=on?'rgba(91,82,232,0.25)':'rgba(30,27,50,0.85)';
+  btn.title=on?'웨이크워드 듣는 중 (탭해서 끄기)':'웨이크워드 듣기';
+  if(on){
+    btn.style.boxShadow='0 0 12px rgba(167,139,250,0.4),0 2px 12px rgba(0,0,0,0.3)';
+    btn.style.animation='wake-pulse 2s ease-in-out infinite';
+    if(!document.getElementById('wake-pulse-style')){
+      var s=document.createElement('style');
+      s.id='wake-pulse-style';
+      s.textContent='@keyframes wake-pulse{0%,100%{box-shadow:0 0 8px rgba(167,139,250,0.3),0 2px 12px rgba(0,0,0,0.3)}50%{box-shadow:0 0 18px rgba(167,139,250,0.7),0 2px 12px rgba(0,0,0,0.3)}}';
+      document.head.appendChild(s);
+    }
+  } else {
+    btn.style.animation='none';
+    btn.style.boxShadow='0 2px 12px rgba(0,0,0,0.3)';
+  }
+}
 
 /* ── LIQUID METAL BUTTON ENGINE ─────────────────── */
 (function(){
