@@ -7903,13 +7903,13 @@ init();
   document.body.appendChild(fab);
 
   /* 웨이크워드 토글 버튼 */
-  var wakeBtn=document.createElement('button');
-  wakeBtn.id='jarvis-wake-btn';
-  wakeBtn.title='웨이크워드 듣기';
-  wakeBtn.innerHTML='🎙';
-  wakeBtn.style.cssText='position:fixed;bottom:calc(126px + env(safe-area-inset-bottom));right:16px;z-index:9999;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);cursor:pointer;color:rgba(255,255,255,0.5);font-size:16px;display:flex;align-items:center;justify-content:center;background:rgba(30,27,50,0.85);backdrop-filter:blur(8px);box-shadow:0 2px 12px rgba(0,0,0,0.3);transition:all .2s;';
-  wakeBtn.onclick=toggleWakeListen;
-  document.body.appendChild(wakeBtn);
+  /* FAB 길게 누르면 웨이크워드 토글 */
+  var _fabPressTimer=null;
+  fab.addEventListener('pointerdown',function(){
+    _fabPressTimer=setTimeout(function(){ toggleWakeListen(); },600);
+  });
+  fab.addEventListener('pointerup',function(){ clearTimeout(_fabPressTimer); });
+  fab.addEventListener('pointerleave',function(){ clearTimeout(_fabPressTimer); });
 })();
 
 /* ── 웨이크워드 항상 듣기 ── */
@@ -7929,7 +7929,6 @@ function startWakeListen(){
   }
   _wakeListening=true;
   _updateWakeBtn(true);
-  showToast('"'+getWakeWord()+'(야/아)" 라고 부르면 자비스가 켜져요', 3000);
   _wakeLoop();
 }
 
@@ -7981,24 +7980,22 @@ function _wakeLoop(){
 }
 
 function _updateWakeBtn(on){
-  var btn=document.getElementById('jarvis-wake-btn');
-  if(!btn) return;
-  btn.style.color=on?'#a78bfa':'rgba(255,255,255,0.5)';
-  btn.style.borderColor=on?'rgba(167,139,250,0.6)':'rgba(255,255,255,0.15)';
-  btn.style.background=on?'rgba(91,82,232,0.25)':'rgba(30,27,50,0.85)';
-  btn.title=on?'웨이크워드 듣는 중 (탭해서 끄기)':'웨이크워드 듣기';
+  var fab=document.getElementById('jarvis-fab');
+  if(!fab) return;
   if(on){
-    btn.style.boxShadow='0 0 12px rgba(167,139,250,0.4),0 2px 12px rgba(0,0,0,0.3)';
-    btn.style.animation='wake-pulse 2s ease-in-out infinite';
+    fab.style.boxShadow='0 0 0 2px rgba(167,139,250,0.8), 0 4px 20px rgba(91,82,232,0.5)';
     if(!document.getElementById('wake-pulse-style')){
       var s=document.createElement('style');
       s.id='wake-pulse-style';
-      s.textContent='@keyframes wake-pulse{0%,100%{box-shadow:0 0 8px rgba(167,139,250,0.3),0 2px 12px rgba(0,0,0,0.3)}50%{box-shadow:0 0 18px rgba(167,139,250,0.7),0 2px 12px rgba(0,0,0,0.3)}}';
+      s.textContent='@keyframes wake-pulse{0%,100%{box-shadow:0 0 0 2px rgba(167,139,250,0.5),0 4px 20px rgba(91,82,232,0.3)}50%{box-shadow:0 0 0 4px rgba(167,139,250,0.9),0 4px 24px rgba(91,82,232,0.7)}}'
+        +'#jarvis-fab.wake-on{animation:wake-pulse 2s ease-in-out infinite;}';
       document.head.appendChild(s);
     }
+    fab.classList.add('wake-on');
+    showToast('"'+getWakeWord()+'(야/아)" 라고 부르면 켜져요 · 길게 눌러 끄기', 3000);
   } else {
-    btn.style.animation='none';
-    btn.style.boxShadow='0 2px 12px rgba(0,0,0,0.3)';
+    fab.classList.remove('wake-on');
+    fab.style.boxShadow='0 4px 20px rgba(0,0,0,0.35)';
   }
 }
 
